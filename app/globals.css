@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: rgba(6, 7, 10, 0.4);
+  --foreground: #f8fafc;
+  --card: rgba(11, 12, 22, 0.75);
+  --card-foreground: #f8fafc;
+  --popover: #0b0c16;
+  --popover-foreground: #f8fafc;
+  --primary: #00d2ff;
+  --primary-foreground: #030712;
+  --secondary: rgba(22, 23, 37, 0.6);
+  --secondary-foreground: #f8fafc;
+  --muted: #111322;
+  --muted-foreground: #94a3b8;
+  --accent: #1e1b4b;
+  --accent-foreground: #00d2ff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(26, 29, 48, 0.6);
+  --input: #1a1d30;
+  --ring: #00d2ff;
+  --chart-1: #00d2ff;
+  --chart-2: #8b5cf6;
+  --chart-3: #10b981;
+  --chart-4: #ec4899;
+  --chart-5: #f59e0b;
+  --radius: 0.75rem;
+  --sidebar: rgba(8, 9, 16, 0.75);
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #00d2ff;
+  --sidebar-primary-foreground: #030712;
+  --sidebar-accent: #161725;
+  --sidebar-accent-foreground: #00d2ff;
+  --sidebar-border: rgba(26, 29, 48, 0.6);
+  --sidebar-ring: #00d2ff;
+}
+
+.dark {
+  --background: rgba(6, 7, 10, 0.4);
+  --foreground: #f8fafc;
+  --card: rgba(11, 12, 22, 0.75);
+  --card-foreground: #f8fafc;
+  --popover: #0b0c16;
+  --popover-foreground: #f8fafc;
+  --primary: #00d2ff;
+  --primary-foreground: #030712;
+  --secondary: rgba(22, 23, 37, 0.6);
+  --secondary-foreground: #f8fafc;
+  --muted: #111322;
+  --muted-foreground: #94a3b8;
+  --accent: #1e1b4b;
+  --accent-foreground: #00d2ff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(26, 29, 48, 0.6);
+  --input: #1a1d30;
+  --ring: #00d2ff;
+  --chart-1: #00d2ff;
+  --chart-2: #8b5cf6;
+  --chart-3: #10b981;
+  --chart-4: #ec4899;
+  --chart-5: #f59e0b;
+  --sidebar: rgba(8, 9, 16, 0.75);
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #00d2ff;
+  --sidebar-primary-foreground: #030712;
+  --sidebar-accent: #161725;
+  --sidebar-accent-foreground: #00d2ff;
+  --sidebar-border: rgba(26, 29, 48, 0.6);
+  --sidebar-ring: #00d2ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    background: url('/back.png') no-repeat center center fixed !important;
+    background-size: cover !important;
+  }
+  body {
+    @apply text-foreground;
+    background: url('/back.png') no-repeat center center fixed !important;
+    background-size: cover !important;
+    min-height: 100vh;
+  }
+}
