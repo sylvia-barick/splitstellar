@@ -64,6 +64,7 @@ export default function GroupsView() {
     let result = [...groups];
 
     // 0. Filter by active wallet membership (shared group visibility)
+    // Only filter by wallet if a wallet is actually connected — otherwise show all local groups
     if (userWallet) {
       const activeAddr = userWallet.toLowerCase();
       result = result.filter(
@@ -72,6 +73,8 @@ export default function GroupsView() {
           g.members.some((m) => m.walletAddress.toLowerCase() === activeAddr)
       );
     }
+    // When no wallet is connected: show all groups so the user can see what they created
+    // before connecting (groups are wallet-filtered once they connect)
 
     // 1. Filter Status
     if (filterStatus === "Active") {

@@ -124,15 +124,19 @@ export default function CreateGroupDialog({ isOpen, onClose }: CreateGroupDialog
   };
 
   const onSubmit = async (values: CreateGroupFormValues) => {
+    if (!ownerWallet) {
+      setMemberError("Please connect your Freighter wallet before creating a group.");
+      return;
+    }
+
     try {
-      const activeOwnerWallet = ownerWallet || "GBDEMOSTELLAROWNERADDRESS1234567890ABCDEF123456789012345";
-      const ownerName = `Owner (${activeOwnerWallet.slice(0, 4)}...${activeOwnerWallet.slice(-4)})`;
+      const ownerName = `Owner (${ownerWallet.slice(0, 4)}...${ownerWallet.slice(-4)})`;
       
       await createGroup(
         values.name,
         values.description || "",
         values.currency,
-        activeOwnerWallet,
+        ownerWallet,
         ownerName,
         values.initialMembers
       );
@@ -156,6 +160,13 @@ export default function CreateGroupDialog({ isOpen, onClose }: CreateGroupDialog
             Group splits are powered by Soroban Smart Contracts. Provide group properties and members below.
           </DialogDescription>
         </DialogHeader>
+
+        {!ownerWallet && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-400 flex items-center gap-2">
+            <span className="font-semibold">⚠ Wallet not connected.</span>
+            <span>Please connect your Freighter wallet before creating a group.</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
           {/* Group Name */}

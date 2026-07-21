@@ -43,7 +43,29 @@ export const useGroupStore = create<GroupState>()(
       syncWithServer: async (address) => {
         try {
           const fetchedGroups = await groupRepository.fetchGroups(address);
-          set({ groups: fetchedGroups });
+          // Only overwrite the store if the server returned real data.
+          // Never wipe existing local groups with an empty server response.
+          if (fetchedGroups.length > 0) {
+            set({ groups: fetchedGroups });
+          } else if (!address) {
+            // No address and no server data — keep whatever is already in the store.
+            // This prevents the 3s polling from wiping groups when the wallet
+            // hasn't connected yet.
+          } else {
+            // Address provided but server returned nothing (e.g. first-time user).
+            // Keep local groups that belong to this address to avoid a flash.
+            const currentGroups = get().groups;
+            const lower = address.toLowerCase();
+            const ownedGroups = currentGroups.filter(
+              (g) =>
+                g.ownerWallet.toLowerCase() === lower ||
+                g.members.some((m) => m.walletAddress.toLowerCase() === lower)
+            );
+            if (ownedGroups.length === 0) {
+              set({ groups: [] });
+            }
+            // else: keep existing local groups for this address
+          }
         } catch (err) {
           console.error("Failed to sync groups:", err);
         }

@@ -9,6 +9,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const expenseRepository = {
   async fetchExpenses(groupId?: string): Promise<Expense[]> {
+    // 1. Try on-chain when we have a groupId
     if (groupId) {
       try {
         const chainExp = await fetchGroupExpensesOnChain(groupId);
@@ -18,33 +19,40 @@ export const expenseRepository = {
       }
     }
 
-    if (!isSupabaseConfigured && typeof window !== "undefined") {
+    // 2. Always try the REST API first
+    try {
+      const params = new URLSearchParams();
+      if (groupId) params.append("groupId", groupId);
+      const url = `/api/expenses${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.expenses)) {
+          return data.expenses;
+        }
+      }
+    } catch (err) {
+      console.warn("API fetchExpenses notice:", err);
+    }
+
+    // 3. Fall back to localStorage (client-side only)
+    if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("splitstellar-expense-store");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed?.state?.expenses) {
-            const expenses = parsed.state.expenses;
+          if (parsed?.state?.expenses && Array.isArray(parsed.state.expenses)) {
+            const expenses = parsed.state.expenses as Expense[];
             if (groupId) {
-              return expenses.filter((e: any) => e.groupId === groupId);
+              return expenses.filter((e) => e.groupId === groupId);
             }
             return expenses;
           }
         }
       } catch {}
-      return [];
     }
 
-    try {
-      const params = new URLSearchParams();
-      if (groupId) params.append("groupId", groupId);
-      const url = `/api/expenses?${params.toString()}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
-      return data.success ? data.expenses : [];
-    } catch {
-      return [];
-    }
+    return [];
   },
 
   async createExpense(expenseData: Omit<Expense, "id" | "createdAt" | "updatedAt">): Promise<Expense> {

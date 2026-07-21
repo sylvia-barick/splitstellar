@@ -48,10 +48,10 @@ export function useRealtimeSync() {
       }
     }
 
-    // 2. Setup 3s Polling Interval for live updates across all instances
+    // 2. Setup polling interval — 10s is frequent enough without causing UI flicker
     const intervalId = setInterval(() => {
       syncAllData();
-    }, 3000);
+    }, 10000);
 
     // 3. BroadcastChannel listener for instant cross-tab sync
     let broadcast: BroadcastChannel | null = null;

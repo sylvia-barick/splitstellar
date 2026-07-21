@@ -10,89 +10,101 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export const groupRepository = {
   async fetchGroups(address?: string): Promise<Group[]> {
-    if (!address) {
-      if (typeof window !== "undefined") {
-        try {
-          const stored = localStorage.getItem("splitstellar-group-store");
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed?.state?.groups) {
-              return parsed.state.groups;
-            }
-          }
-        } catch {}
-      }
-      return [];
-    }
-
-    try {
-      const chainGroups = await fetchGroupsForWalletOnChain(address);
-      if (chainGroups.length > 0) return chainGroups;
-    } catch (err) {
-      console.warn("On-chain fetchGroups notice:", err);
-    }
-
-    if (isSupabaseConfigured && address) {
+    // 1. Try on-chain only when we have a connected address
+    if (address) {
       try {
-        const lower = address.toLowerCase();
+        const chainGroups = await fetchGroupsForWalletOnChain(address);
+        if (chainGroups.length > 0) return chainGroups;
+      } catch (err) {
+        console.warn("On-chain fetchGroups notice:", err);
+      }
+    }
+
+    // 2. Try Supabase when configured
+    if (isSupabaseConfigured) {
+      try {
         const { data: groupsData } = await supabase
           .from("groups")
           .select("*, group_members(*)");
 
         if (groupsData) {
-          return (groupsData as Array<Record<string, unknown>>)
-            .filter((g) => {
-              const members = (g.group_members as Array<Record<string, unknown>>) || [];
-              const isOwner = String(g.owner_wallet || "").toLowerCase() === lower;
-              const isMember = members.some(
-                (m) => String(m.wallet_address || "").toLowerCase() === lower
-              );
-              return isOwner || isMember;
-            })
-            .map((g) => ({
-              id: String(g.id || ""),
-              name: String(g.name || ""),
-              description: String(g.description || ""),
-              currency: (g.currency as SupportedCurrency) || "XLM",
-              inviteCode: String(g.invite_code || ""),
-              ownerWallet: String(g.owner_wallet || ""),
-              createdAt: String(g.created_at || new Date().toISOString()),
-              updatedAt: String(g.updated_at || new Date().toISOString()),
-              status: g.status === "Archived" ? "Archived" : "Active",
-              totalExpenses: 0,
-              pendingBalance: 0,
-              members: ((g.group_members as Array<Record<string, unknown>>) || []).map((m) => ({
-                id: String(m.id || ""),
-                name: String(m.name || "Member"),
-                walletAddress: String(m.wallet_address || ""),
-                email: String(m.email || ""),
-                joinedAt: String(m.joined_at || new Date().toISOString()),
-                role: m.role === "Owner" ? "Owner" : "Member",
-              })),
-            }));
+          const allGroups = (groupsData as Array<Record<string, unknown>>).map((g) => ({
+            id: String(g.id || ""),
+            name: String(g.name || ""),
+            description: String(g.description || ""),
+            currency: (g.currency as SupportedCurrency) || "XLM",
+            inviteCode: String(g.invite_code || ""),
+            ownerWallet: String(g.owner_wallet || ""),
+            createdAt: String(g.created_at || new Date().toISOString()),
+            updatedAt: String(g.updated_at || new Date().toISOString()),
+            status: (g.status === "Archived" ? "Archived" : "Active") as "Active" | "Archived",
+            totalExpenses: 0,
+            pendingBalance: 0,
+            members: ((g.group_members as Array<Record<string, unknown>>) || []).map((m) => ({
+              id: String(m.id || ""),
+              name: String(m.name || "Member"),
+              walletAddress: String(m.wallet_address || ""),
+              email: String(m.email || ""),
+              joinedAt: String(m.joined_at || new Date().toISOString()),
+              role: (m.role === "Owner" ? "Owner" : "Member") as "Owner" | "Member",
+            })),
+          }));
+
+          // If address provided, filter to groups this wallet belongs to
+          if (address) {
+            const lower = address.toLowerCase();
+            return allGroups.filter(
+              (g) =>
+                g.ownerWallet.toLowerCase() === lower ||
+                g.members.some((m) => m.walletAddress.toLowerCase() === lower)
+            );
+          }
+          return allGroups;
         }
       } catch (err) {
         console.warn("Supabase fetchGroups fallback notice:", err);
       }
     }
 
-    if (!isSupabaseConfigured && typeof window !== "undefined") {
+    // 3. Always try the REST API (works in all environments including Vercel serverless)
+    try {
+      const url = address
+        ? `/api/groups?address=${encodeURIComponent(address)}`
+        : `/api/groups`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.groups) && data.groups.length > 0) {
+          return data.groups;
+        }
+      }
+    } catch (err) {
+      console.warn("API fetchGroups notice:", err);
+    }
+
+    // 4. Last resort: read from localStorage (client-side only)
+    if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("splitstellar-group-store");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed?.state?.groups) {
-            return parsed.state.groups;
+          if (parsed?.state?.groups && Array.isArray(parsed.state.groups)) {
+            const localGroups: Group[] = parsed.state.groups;
+            if (address) {
+              const lower = address.toLowerCase();
+              return localGroups.filter(
+                (g) =>
+                  g.ownerWallet.toLowerCase() === lower ||
+                  g.members.some((m) => m.walletAddress.toLowerCase() === lower)
+              );
+            }
+            return localGroups;
           }
         }
       } catch {}
-      return [];
     }
 
-    const url = address ? `/api/groups?address=${encodeURIComponent(address)}` : `/api/groups`;
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
-    return data.success ? data.groups : [];
+    return [];
   },
 
   async createGroup(

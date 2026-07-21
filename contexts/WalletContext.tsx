@@ -11,6 +11,7 @@ interface WalletContextType {
   address: string | null;
   network: string | null;
   isInstalled: boolean;
+  isLoading: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
 }
@@ -22,6 +23,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [network, setNetwork] = useState<string | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Sync user with Supabase users table
   const syncUserIdentity = async (userAddress: string) => {
@@ -41,18 +43,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initWallet = async () => {
-      const installed = await walletService.isInstalled();
-      setIsInstalled(installed);
+      setIsLoading(true);
+      try {
+        const installed = await walletService.isInstalled();
+        setIsInstalled(installed);
 
-      if (installed) {
-        const addr = await walletService.getAddress();
-        if (addr) {
-          setAddress(addr);
-          setIsConnected(true);
-          const net = await walletService.getNetwork();
-          setNetwork(net);
-          await syncUserIdentity(addr);
+        if (installed) {
+          const addr = await walletService.getAddress();
+          if (addr) {
+            setAddress(addr);
+            setIsConnected(true);
+            const net = await walletService.getNetwork();
+            setNetwork(net);
+            await syncUserIdentity(addr);
+          }
         }
+      } catch (err) {
+        console.warn("Wallet init error:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -69,7 +78,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setNetwork(net);
         await syncUserIdentity(addr);
 
-        // Track wallet connection in Google Analytics
         trackEvent({
           action: ANALYTICS_EVENTS.CONNECT_WALLET,
           category: "wallet",
@@ -97,6 +105,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         address,
         network,
         isInstalled,
+        isLoading,
         connect,
         disconnect,
       }}

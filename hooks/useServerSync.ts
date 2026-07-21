@@ -41,10 +41,10 @@ export function useServerSync() {
     // Initial sync on mount or address change
     syncAllData();
 
-    // 1. Setup Polling Interval (every 3 seconds) for live multi-browser updates
+    // 1. Setup Polling Interval (every 10 seconds) for live multi-browser updates
     const intervalId = setInterval(() => {
       syncAllData();
-    }, 3000);
+    }, 10000);
 
     // 2. Setup BroadcastChannel listener for instant cross-tab sync
     let channel: BroadcastChannel | null = null;

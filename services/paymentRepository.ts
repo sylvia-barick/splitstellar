@@ -13,33 +13,39 @@ export const paymentRepository = {
       }
     }
 
-    if (!isSupabaseConfigured && typeof window !== "undefined") {
+    // Always try the REST API first (works on Vercel)
+    try {
+      const params = new URLSearchParams();
+      if (groupId) params.append("groupId", groupId);
+      const url = `/api/payments${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.payments)) {
+          return data.payments;
+        }
+      }
+    } catch (err) {
+      console.warn("API fetchPayments notice:", err);
+    }
+
+    // Fallback to localStorage
+    if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("splitstellar-payment-store");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed?.state?.payments) {
-            const payments = parsed.state.payments;
+          if (parsed?.state?.payments && Array.isArray(parsed.state.payments)) {
+            const payments = parsed.state.payments as Payment[];
             if (groupId) {
-              return payments.filter((p: any) => p.groupId === groupId);
+              return payments.filter((p) => p.groupId === groupId);
             }
             return payments;
           }
         }
       } catch {}
-      return [];
     }
-
-    try {
-      const params = new URLSearchParams();
-      if (groupId) params.append("groupId", groupId);
-      const url = `/api/payments?${params.toString()}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
-      return data.success ? data.payments : [];
-    } catch {
-      return [];
-    }
+    return [];
   },
 
   async createPayment(
