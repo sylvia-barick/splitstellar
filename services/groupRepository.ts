@@ -63,6 +63,19 @@ export const groupRepository = {
       }
     }
 
+    if (!isSupabaseConfigured && typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("splitstellar-group-store");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.state?.groups) {
+            return parsed.state.groups;
+          }
+        }
+      } catch {}
+      return [];
+    }
+
     const url = address ? `/api/groups?address=${encodeURIComponent(address)}` : `/api/groups`;
     const res = await fetch(url, { cache: "no-store" });
     const data = await res.json();

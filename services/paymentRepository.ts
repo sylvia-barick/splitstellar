@@ -1,5 +1,6 @@
 import { Payment, PaymentStatus } from "@/types/payment";
 import { recordPaymentOnChain, fetchGroupSettlementsOnChain } from "@/lib/soroban/settlement";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const paymentRepository = {
   async fetchPayments(groupId?: string): Promise<Payment[]> {
@@ -10,6 +11,23 @@ export const paymentRepository = {
       } catch (err) {
         console.warn("Soroban fetchGroupSettlements notice:", err);
       }
+    }
+
+    if (!isSupabaseConfigured && typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("splitstellar-payment-store");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.state?.payments) {
+            const payments = parsed.state.payments;
+            if (groupId) {
+              return payments.filter((p: any) => p.groupId === groupId);
+            }
+            return payments;
+          }
+        }
+      } catch {}
+      return [];
     }
 
     try {

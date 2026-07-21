@@ -5,6 +5,7 @@ import {
   deleteExpenseOnChain,
   fetchGroupExpensesOnChain,
 } from "@/lib/soroban/expense";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const expenseRepository = {
   async fetchExpenses(groupId?: string): Promise<Expense[]> {
@@ -15,6 +16,23 @@ export const expenseRepository = {
       } catch (err) {
         console.warn("Soroban fetchGroupExpenses notice:", err);
       }
+    }
+
+    if (!isSupabaseConfigured && typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("splitstellar-expense-store");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.state?.expenses) {
+            const expenses = parsed.state.expenses;
+            if (groupId) {
+              return expenses.filter((e: any) => e.groupId === groupId);
+            }
+            return expenses;
+          }
+        }
+      } catch {}
+      return [];
     }
 
     try {

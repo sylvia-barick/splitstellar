@@ -6,6 +6,7 @@ import {
   markMoneyRequestPaidOnChain,
   fetchGroupMoneyRequestsOnChain,
 } from "@/lib/soroban/moneyRequest";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const requestRepository = {
   async fetchRequests(groupId?: string): Promise<MoneyRequest[]> {
@@ -16,6 +17,23 @@ export const requestRepository = {
       } catch (err) {
         console.warn("Soroban fetchGroupMoneyRequests notice:", err);
       }
+    }
+
+    if (!isSupabaseConfigured && typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("splitstellar-request-store");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.state?.requests) {
+            const requests = parsed.state.requests;
+            if (groupId) {
+              return requests.filter((r: any) => r.groupId === groupId);
+            }
+            return requests;
+          }
+        }
+      } catch {}
+      return [];
     }
 
     try {

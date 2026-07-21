@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { execSync } from "child_process";
 import { Group } from "@/types/group";
 import { Expense } from "@/types/expense";
 import { Payment, MoneyRequest, ActivityItem } from "@/types/payment";
@@ -104,48 +105,72 @@ function resolveDbPaths() {
   return { dbDir, dbFile };
 }
 
-// Asynchronously load the database state from Supabase if configured
-function asyncLoadFromSupabase() {
+// Synchronously load the database state from Supabase if configured (called only once on cold start)
+function syncLoadFromSupabase() {
   if (!isSupabaseConfigured || globalForDb.supabaseLoaded) return;
 
-  supabase
-    .from("users")
-    .select("name")
-    .eq("wallet_address", "db_state")
-    .single()
-    .then(({ data, error }) => {
-      if (error) {
-        console.warn("Notice: DB State not yet loaded/found in Supabase:", error.message);
-        return;
-      }
-      if (data && data.name) {
-        try {
-          const parsed = JSON.parse(data.name) as DatabaseSchema;
-          globalForDb.splitstellarDb = {
-            users: parsed.users || [],
-            groups: parsed.groups || [],
-            expenses: parsed.expenses || [],
-            payments: parsed.payments || [],
-            requests: parsed.requests || [],
-            activities: parsed.activities || [],
-            notifications: parsed.notifications || [],
-            analyticsCache: parsed.analyticsCache,
-          };
-          globalForDb.supabaseLoaded = true;
-          // Also save locally in tmp/cwd for fast sync on subsequent reads
-          const { dbFile } = resolveDbPaths();
-          fs.writeFileSync(dbFile, JSON.stringify(globalForDb.splitstellarDb, null, 2), "utf-8");
-          console.log("Database state successfully loaded from Supabase.");
-        } catch (e) {
-          console.error("Error parsing DB state from Supabase:", e);
-        }
-      }
-    });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) return;
+
+  try {
+    const tempScriptPath = path.join(os.tmpdir(), "sync-load.js");
+    const scriptContent = `
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient('${supabaseUrl}', '${supabaseAnonKey}');
+supabase.from('users').select('name').eq('wallet_address', 'db_state').single()
+  .then(({ data, error }) => {
+    if (error) {
+      process.exit(1);
+    }
+    if (data && data.name) {
+      process.stdout.write(data.name);
+    }
+    process.exit(0);
+  })
+  .catch(() => process.exit(1));
+`;
+
+    fs.writeFileSync(tempScriptPath, scriptContent, "utf-8");
+    const result = execSync(`node "${tempScriptPath}"`, { encoding: "utf-8", timeout: 5000 });
+    
+    // Clean up temp script file
+    try {
+      fs.unlinkSync(tempScriptPath);
+    } catch {}
+
+    if (result && result.trim()) {
+      const parsed = JSON.parse(result.trim()) as DatabaseSchema;
+      globalForDb.splitstellarDb = {
+        users: parsed.users || [],
+        groups: parsed.groups || [],
+        expenses: parsed.expenses || [],
+        payments: parsed.payments || [],
+        requests: parsed.requests || [],
+        activities: parsed.activities || [],
+        notifications: parsed.notifications || [],
+        analyticsCache: parsed.analyticsCache,
+      };
+      globalForDb.supabaseLoaded = true;
+      console.log("Database state successfully loaded synchronously from Supabase on cold start.");
+      
+      // Also save locally in tmp/cwd for fast sync on subsequent reads
+      const { dbFile } = resolveDbPaths();
+      try {
+        fs.writeFileSync(dbFile, JSON.stringify(globalForDb.splitstellarDb, null, 2), "utf-8");
+      } catch {}
+    }
+  } catch (err) {
+    console.warn("Notice: Synchronous Supabase load did not find state or failed:", err instanceof Error ? err.message : err);
+  }
 }
 
 export function getDb(): DatabaseSchema {
-  // Try loading from Supabase in the background
-  asyncLoadFromSupabase();
+  if (!globalForDb.splitstellarDb) {
+    // Try loading synchronously from Supabase on the very first call
+    syncLoadFromSupabase();
+  }
 
   if (globalForDb.splitstellarDb) {
     return globalForDb.splitstellarDb;
