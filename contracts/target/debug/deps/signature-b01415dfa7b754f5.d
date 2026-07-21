@@ -1,0 +1,12 @@
+D:\splitstellar\contracts\target\debug\deps\signature-b01415dfa7b754f5.d: C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\lib.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\hazmat.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\encoding.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\error.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\keypair.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\signer.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\verifier.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\../README.md
+
+D:\splitstellar\contracts\target\debug\deps\libsignature-b01415dfa7b754f5.rmeta: C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\lib.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\hazmat.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\encoding.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\error.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\keypair.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\signer.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\verifier.rs C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\../README.md
+
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\lib.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\hazmat.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\encoding.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\error.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\keypair.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\signer.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\verifier.rs:
+C:\Users\DELL\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\../README.md:
