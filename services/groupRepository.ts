@@ -10,13 +10,26 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export const groupRepository = {
   async fetchGroups(address?: string): Promise<Group[]> {
-    if (address) {
-      try {
-        const chainGroups = await fetchGroupsForWalletOnChain(address);
-        if (chainGroups.length > 0) return chainGroups;
-      } catch (err) {
-        console.warn("On-chain fetchGroups notice:", err);
+    if (!address) {
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("splitstellar-group-store");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.state?.groups) {
+              return parsed.state.groups;
+            }
+          }
+        } catch {}
       }
+      return [];
+    }
+
+    try {
+      const chainGroups = await fetchGroupsForWalletOnChain(address);
+      if (chainGroups.length > 0) return chainGroups;
+    } catch (err) {
+      console.warn("On-chain fetchGroups notice:", err);
     }
 
     if (isSupabaseConfigured && address) {
