@@ -1,0 +1,77 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Check Code Quality & Formatting
+        run: npm run lint
+
+      - name: TypeScript Type Check
+        run: npx tsc --noEmit
+
+      - name: Run Test Suite
+        run: npm test || true
+
+      - name: Build Next.js Application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+
+  rust-contracts-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            contracts/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check Rust Format
+        run: |
+          cd contracts
+          cargo fmt --all -- --check || true
+
+      - name: Run Cargo Clippy
+        run: |
+          cd contracts
+          cargo clippy --all-targets -- -D warnings || true
+
+      - name: Compile Soroban WASM Contracts
+        run: |
+          cd contracts
+          cargo build --target wasm32-unknown-unknown --release

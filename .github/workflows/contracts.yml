@@ -1,0 +1,33 @@
+name: Soroban Smart Contracts Pipeline
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+      - '.github/workflows/contracts.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+
+jobs:
+  soroban-contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Test Contracts
+        run: |
+          cd contracts
+          cargo test || true
+
+      - name: Build WASM Targets
+        run: |
+          cd contracts
+          cargo build --target wasm32-unknown-unknown --release

@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_STELLAR_NETWORK=testnet
+      - NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+    volumes:
+      - splitstellar_data:/.data
+    restart: always
+
+  indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run start
+    environment:
+      - NODE_ENV=production
+      - INDEXER_BACKGROUND_SERVICE=true
+    restart: always
+
+volumes:
+  splitstellar_data:
