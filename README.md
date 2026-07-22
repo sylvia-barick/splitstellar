@@ -368,6 +368,8 @@ All 5 contracts are compiled and deployed to **Stellar Testnet** using `stellar-
 | **Money Request Contract** | `CDQZVM7QMWCCS6AAXPT5PIWQB7BM73LCEGLK6SP377ZSMCQNAQFETX7C` | [Stellar Lab Link](https://lab.stellar.org/r/testnet/contract/CDQZVM7QMWCCS6AAXPT5PIWQB7BM73LCEGLK6SP377ZSMCQNAQFETX7C) |
 | **Activity Contract** | `CDOPXKRGOP2WN4M7BD7YDSM2K2YZ4ZDNP7L6PIALFEAMJOOE3KYXE6VS` | [Stellar Lab Link](https://lab.stellar.org/r/testnet/contract/CDOPXKRGOP2WN4M7BD7YDSM2K2YZ4ZDNP7L6PIALFEAMJOOE3KYXE6VS) |
 
+ <img src="check.png" alt="SplitStellar check" width="100%" height="500" style="border-radius: 20%;" />
+ 
 ---
 
 ## 🌐 Consolidated API Reference
@@ -476,6 +478,8 @@ Our development testing utilized **10+ distinct Stellar Testnet wallets** checki
 ## 🔁 CI/CD Pipelines & DevOps Automation
 
 SplitStellar utilizes GitHub Actions to automate code quality verification, unit testing, compiling of smart contracts, and production build checks on every push to main branches.
+
+ <img src="cicd pipeline.png" alt="SplitStellar cicd" width="100%" height="500" style="border-radius: 20%;" />
 
 ### 1. Next.js Continuous Integration ([ci.yml](file:///d:/splitstellar/.github/workflows/ci.yml))
 Runs on an `ubuntu-latest` container:
