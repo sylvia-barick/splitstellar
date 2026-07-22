@@ -53,13 +53,22 @@ export default function SettlementCard({
   const debtorName = getMemberName(debt.from);
   const creditorName = getMemberName(debt.to);
 
-  // Check if this settlement has already been paid on-chain
+  // Check if this specific debt has been settled on-chain.
+  // Match by settlementId first (most precise), then by exact amount+direction.
   const matchingPayment = payments.find(
     (p) =>
       p.groupId === groupId &&
-      p.from.toLowerCase() === debtorAddr &&
-      p.to.toLowerCase() === creditorAddr &&
-      (p.status === "Paid" || p.status === "Completed" || p.status === "Confirmed")
+      (p.status === "Paid" || p.status === "Completed" || p.status === "Confirmed") &&
+      (
+        // Exact match by settlementId
+        (p.settlementId && p.settlementId === debt.id) ||
+        // Fallback: same direction AND same amount (within floating point tolerance)
+        (
+          p.from.toLowerCase() === debtorAddr &&
+          p.to.toLowerCase() === creditorAddr &&
+          Math.abs(p.amount - debt.amount) < 0.01
+        )
+      )
   );
 
   const isPaid = Boolean(matchingPayment);

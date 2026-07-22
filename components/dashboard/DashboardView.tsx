@@ -52,29 +52,26 @@ export default function DashboardView() {
     );
   }, [groups, userWallet, activeAddr]);
 
-  // Aggregate user balances across all joined groups
+  // Aggregate user net balance across all joined groups
   const userBalances = useMemo(() => {
-    let totalPaid = 0;
-    let totalOwes = 0;
+    let totalNet = 0;
 
     userGroups.forEach((g) => {
       const memberAddrs = g.members.map((m) => m.walletAddress);
       const bMap = calculateBalances(g.id, memberAddrs);
       if (bMap[activeAddr]) {
-        totalPaid += bMap[activeAddr].totalPaid;
-        totalOwes += bMap[activeAddr].totalOwes;
+        totalNet += bMap[activeAddr].netBalance;
       }
     });
 
-    const net = totalPaid - totalOwes;
     return {
-      totalPaid,
-      totalOwes,
-      net,
-      moneyOwed: net < 0 ? Math.abs(net) : 0,
-      moneyReceivable: net > 0 ? net : 0,
+      net: parseFloat(totalNet.toFixed(2)),
+      // money owed BY the user (user is debtor)
+      moneyOwed: totalNet < 0 ? parseFloat(Math.abs(totalNet).toFixed(2)) : 0,
+      // money owed TO the user (user is creditor)
+      moneyReceivable: totalNet > 0 ? parseFloat(totalNet.toFixed(2)) : 0,
     };
-  }, [userGroups, calculateBalances, activeAddr]);
+  }, [userGroups, calculateBalances, activeAddr, expenses, payments, requests]);
 
   // Pending payments where user is debtor or creditor
   const pendingPayments = useMemo(() => {

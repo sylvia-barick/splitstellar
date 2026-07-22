@@ -137,83 +137,74 @@ export const useExpenseStore = create<ExpenseState>()(
             addresses = Array.from(addrSet);
           }
         }
-        
-        const balanceMap: Record<string, { totalPaid: number; totalOwes: number; netBalance: number }> = {};
+
+        // balanceMap tracks each member's net position:
+        //   netBalance > 0  → they are owed money (creditor)
+        //   netBalance < 0  → they owe money (debtor)
+        const netMap: Record<string, number> = {};
         addresses.forEach((addr) => {
-          balanceMap[addr.toLowerCase()] = {
-            totalPaid: 0,
-            totalOwes: 0,
-            netBalance: 0,
-          };
+          netMap[addr.toLowerCase()] = 0;
         });
 
-        // 1. Compute balances from expenses
+        // ── Step 1: Expenses ────────────────────────────────────────────────
+        // The payer fronted the full amount → they gain credit for the shares
+        // of everyone else. Each participant owes their own share back to the payer.
         groupExpenses.forEach((exp) => {
           const payerKey = exp.paidBy.toLowerCase();
-          
-          if (balanceMap[payerKey]) {
-            balanceMap[payerKey].totalPaid += exp.amount;
-          }
-
           exp.participants.forEach((part) => {
             const partKey = part.walletAddress.toLowerCase();
-            if (balanceMap[partKey]) {
-              balanceMap[partKey].totalOwes += part.shareAmount;
-            }
+            if (partKey === payerKey) return; // payer owes themselves nothing
+            // participant owes shareAmount to payer
+            if (netMap[partKey] !== undefined) netMap[partKey] -= part.shareAmount;
+            if (netMap[payerKey] !== undefined) netMap[payerKey] += part.shareAmount;
           });
         });
 
-        // 2. Compute balances from Direct Loans & Money Requests
-        const groupRequests = useRequestStore.getState().getRequestsByGroup(groupId);
+        // ── Step 2: Settlement payments (debt repayments) ───────────────────
+        // When A sends 100 to owner as a settlement, A's debt decreases by 100
+        // and owner's credit decreases by 100. This is the opposite of an expense.
         const groupPayments = usePaymentStore.getState().getPaymentsByGroup(groupId);
-        const paymentReqIds = new Set(groupPayments.map((p) => p.requestId).filter(Boolean));
-
-        groupRequests.forEach((req) => {
-          if (req.type === "DirectLoan") {
-            if (req.status === "Accepted" || req.status === "Paid" || req.status === "Completed") {
-              const lenderKey = req.from.toLowerCase();
-              const borrowerKey = req.to.toLowerCase();
-
-              if (balanceMap[lenderKey]) {
-                balanceMap[lenderKey].totalPaid += req.amount;
-              }
-              if (balanceMap[borrowerKey]) {
-                balanceMap[borrowerKey].totalOwes += req.amount;
-              }
-            }
-          } else if (req.type === "Request") {
-            // Only count paid money requests if they don't already have a corresponding Payment record
-            if ((req.status === "Paid" || req.status === "Completed") && !paymentReqIds.has(req.id)) {
-              const payerKey = req.to.toLowerCase();
-              const requesterKey = req.from.toLowerCase();
-
-              if (balanceMap[payerKey]) {
-                balanceMap[payerKey].totalPaid += req.amount;
-              }
-              if (balanceMap[requesterKey]) {
-                balanceMap[requesterKey].totalOwes += req.amount;
-              }
-            }
-          }
-        });
-
-        // 3. Compute balances from On-Chain Payments & Repayments
         groupPayments.forEach((pay) => {
           if (pay.status === "Paid" || pay.status === "Completed" || pay.status === "Confirmed") {
             const payerKey = pay.from.toLowerCase();
             const receiverKey = pay.to.toLowerCase();
-
-            if (balanceMap[payerKey]) {
-              balanceMap[payerKey].totalPaid += pay.amount;
-            }
-            if (balanceMap[receiverKey]) {
-              balanceMap[receiverKey].totalOwes += pay.amount;
-            }
+            // payer is settling their debt → their net goes up (less negative)
+            if (netMap[payerKey] !== undefined) netMap[payerKey] += pay.amount;
+            // receiver has been repaid → their net goes down (less positive)
+            if (netMap[receiverKey] !== undefined) netMap[receiverKey] -= pay.amount;
           }
         });
 
-        Object.keys(balanceMap).forEach((key) => {
-          balanceMap[key].netBalance = balanceMap[key].totalPaid - balanceMap[key].totalOwes;
+        // ── Step 3: Direct Loans ────────────────────────────────────────────
+        // Lender gives money to borrower → lender gains credit, borrower owes
+        const groupRequests = useRequestStore.getState().getRequestsByGroup(groupId);
+        groupRequests.forEach((req) => {
+          if (req.type === "DirectLoan") {
+            if (req.status === "Accepted" || req.status === "Paid") {
+              const lenderKey = req.from.toLowerCase();
+              const borrowerKey = req.to.toLowerCase();
+              if (netMap[lenderKey] !== undefined) netMap[lenderKey] += req.amount;
+              if (netMap[borrowerKey] !== undefined) netMap[borrowerKey] -= req.amount;
+            } else if (req.status === "Completed") {
+              // Loan fully repaid — no net effect (already settled via payment record)
+            }
+          }
+          // Money requests (type === "Request") are purely informational payment
+          // triggers. The actual fund movement is captured in the Payment record
+          // above (step 2), so we do NOT double-count them here.
+        });
+
+        // ── Build final balance map ─────────────────────────────────────────
+        const balanceMap: Record<string, { totalPaid: number; totalOwes: number; netBalance: number }> = {};
+        addresses.forEach((addr) => {
+          const key = addr.toLowerCase();
+          const net = netMap[key] ?? 0;
+          balanceMap[key] = {
+            // Expose totalPaid / totalOwes for backward compat with UI cards
+            totalPaid: net > 0 ? net : 0,
+            totalOwes: net < 0 ? Math.abs(net) : 0,
+            netBalance: net,
+          };
         });
 
         return balanceMap;
