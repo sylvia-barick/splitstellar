@@ -219,6 +219,11 @@ function bootstrap(): Promise<DatabaseSchema> {
         res = await supabaseLoad();
       }
       if (!res.success) {
+        if (res.error?.code === "PGRST205" || String(res.error?.message).includes("schema cache")) {
+          throw new Error(
+            "Supabase tables are not configured. Please go to your Supabase Dashboard, open the SQL Editor, copy and run the SQL schema defined in supabase/schema.sql to create the required tables."
+          );
+        }
         throw new Error(`Failed to bootstrap database from Supabase: ${JSON.stringify(res.error)}`);
       }
       if (res.data) {
@@ -265,6 +270,11 @@ export async function getDb(): Promise<DatabaseSchema> {
       res = await supabaseLoad();
     }
     if (!res.success) {
+      if (res.error?.code === "PGRST205" || String(res.error?.message).includes("schema cache")) {
+        throw new Error(
+          "Supabase tables are not configured. Please go to your Supabase Dashboard, open the SQL Editor, copy and run the SQL schema defined in supabase/schema.sql to create the required tables."
+        );
+      }
       throw new Error(`Failed to load database from Supabase: ${JSON.stringify(res.error)}`);
     }
     if (res.data) {
