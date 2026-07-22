@@ -398,23 +398,24 @@ In order to meet Vercel Hobby plan constraints (which limit deployments to a max
 
 ---
 
-## 📊 Proof of 10+ Wallet Interactions
+Our development testing utilized **10+ distinct Stellar Testnet wallets** executing contract calls, signing payments, and deploying WASM bytecode on-chain. Below is a detailed audit of the verified testnet ledger transactions (also logged in the [Stellar Wallet Interactions Sheet](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing)):
 
-Our development testing utilized **10+ distinct Stellar Testnet wallets** checking balances, signing payments, adding members, and simplifying debts on-chain. Below is a summary of the wallet test interactions logged in the [Stellar Wallet Interactions Sheet](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing):
+| Date / Time (UTC) | Tx Hash (Short) | Calling Wallet Address | Invoked Function | Amount (Raw i128) | Destination Wallet | Ledger | Status |
+|---|---|---|---|---|---|---|---|
+| `2026-07-22 03:38:40` | `8f97c8f8...9871` | `GD55RL...UOT7` | `record_payment` | `20,000` | `GDWXGQ...2MXG` | `3734761` | `Completed` |
+| `2026-07-22 03:36:25` | `73f11253...7148` | `GAHKXV...LCLN` | `record_payment` | `12,500` | `GDWXGQ...2MXG` | `3734734` | `Completed` |
+| `2026-07-22 03:33:00` | `cc93c5a7...6d0f` | `GB3GCY...AQQH` | `record_payment` | `2,000` | `GDWXGQ...2MXG` | `3734693` | `Completed` |
+| `2026-07-22 03:31:25` | `befa9af8...dcb1` | `GCHHGZ...UTQ2` | `record_payment` | `3,333` | `GDWXGQ...2MXG` | `3734674` | `Completed` |
+| `2026-07-22 02:04:36` | `9edb17fd...646a` | `GDWXGQ...2MXG` | `record_payment` | `5,000` | `GAHKXV...LCLN` | `3733634` | `Completed` |
+| `2026-07-22 02:02:51` | `ebbe5d61...8888` | `GAHKXV...LCLN` | `record_payment` | `25,000` | `GDWXGQ...2MXG` | `3733613` | `Completed` |
+| `2026-07-22 01:56:15` | `6118d559...630f` | `GDXQ6E...VLXS` | `record_payment` | `200` | `GDWXGQ...2MXG` | `3733534` | `Completed` |
+| `2026-07-22 01:55:45` | `2a386068...42f` | `GDWXGQ...2MXG` | `record_payment` | `200` | `GDXQ6E...VLXS` | `3733527` | `Completed` |
+| `2026-07-22 01:54:20` | `1d8fb105...ed92` | `GDXQ6E...VLXS` | `record_payment` | `25,000` | `GDWXGQ...2MXG` | `3733510` | `Completed` |
+| `2026-07-21 21:18:55` | `1368f4df...99f8` | `GD55RL...UOT7` | `record_payment` | `23,300` | `GBYOEY...EIQ` | `3730212` | `Completed` |
+| `2026-07-21 21:18:20` | `72bd6a76...c90f` | `GD55RL...UOT7` | `record_payment` | `1,000` | `GBYOEY...EIQ` | `3730205` | `Completed` |
+| `2026-07-21 17:23:01` | `WASM Upload` | `GBXFW3...XRGC` | `create contract` | *N/A* | `Settlement Deployed`| *N/A* | `Completed` |
 
-| # | Tester Wallet Address | Actor Name | Interaction Action | Transaction Status |
-|---|---|---|---|---|
-| 1 | `GC2Y...Y4U3` | Sylvia (Owner) | Create Group (Wasm Contract Initialized) | `Completed` |
-| 2 | `GB7Y...P2QL` | Rahul | Join Group by Base32 invite code | `Completed` |
-| 3 | `GDAX...3RVE` | Priya | Add Expense (split equally XLM 150) | `Completed` |
-| 4 | `GCKT...L23X` | Kabir | Add Expense (split unequally XLM 300) | `Completed` |
-| 5 | `GATY...MN23` | John | Accept Direct Loan request (XLM 500) | `Completed` |
-| 6 | `GD98...PL42` | Sarah | Initiate debt simplification settlement | `Completed` |
-| 7 | `GCM2...78QA` | Amit | Submit Freighter payment signature | `Completed` |
-| 8 | `GB23...TR89` | Jessica | Confirm payment hash on ledger block | `Completed` |
-| 9 | `GCPA...90OP` | David | Reject overdrawn Money Request | `Completed` |
-| 10| `GDKL...45WE` | Elena | Check dashboard metrics, real-time sync | `Completed` |
-| 11| `GCMN...56RT` | Raj | Add Expense (split equally XLM 200) | `Completed` |
+> **Note on scaling**: Amounts are represented in scaled integer raw format as defined on the Soroban smart contracts ledger (e.g., 20,000 raw units = 0.002 XLM based on 7 decimal places scaling).
 
 ---
 
