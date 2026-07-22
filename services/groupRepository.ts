@@ -6,67 +6,28 @@ import {
   deleteGroupOnChain,
   fetchGroupsForWalletOnChain,
 } from "@/lib/soroban/group";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// groupRepository — SINGLE SOURCE OF TRUTH: /api/groups (→ lib/db.ts → Supabase)
+//
+// All CRUD goes through the REST API routes only.
+// No direct supabase.from("groups") calls here.
+// This guarantees every read and write hits the same db_state blob.
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const groupRepository = {
   async fetchGroups(address?: string): Promise<Group[]> {
-    // 1. Try on-chain only when we have a connected address
+    // 1. Try Soroban on-chain (only when wallet address is available)
     if (address) {
       try {
         const chainGroups = await fetchGroupsForWalletOnChain(address);
         if (chainGroups.length > 0) return chainGroups;
-      } catch (err) {
-        console.warn("On-chain fetchGroups notice:", err);
+      } catch {
+        // Soroban not available — expected in most cases
       }
     }
 
-    // 2. Try Supabase when configured
-    if (isSupabaseConfigured) {
-      try {
-        const { data: groupsData } = await supabase
-          .from("groups")
-          .select("*, group_members(*)");
-
-        if (groupsData) {
-          const allGroups = (groupsData as Array<Record<string, unknown>>).map((g) => ({
-            id: String(g.id || ""),
-            name: String(g.name || ""),
-            description: String(g.description || ""),
-            currency: (g.currency as SupportedCurrency) || "XLM",
-            inviteCode: String(g.invite_code || ""),
-            ownerWallet: String(g.owner_wallet || ""),
-            createdAt: String(g.created_at || new Date().toISOString()),
-            updatedAt: String(g.updated_at || new Date().toISOString()),
-            status: (g.status === "Archived" ? "Archived" : "Active") as "Active" | "Archived",
-            totalExpenses: 0,
-            pendingBalance: 0,
-            members: ((g.group_members as Array<Record<string, unknown>>) || []).map((m) => ({
-              id: String(m.id || ""),
-              name: String(m.name || "Member"),
-              walletAddress: String(m.wallet_address || ""),
-              email: String(m.email || ""),
-              joinedAt: String(m.joined_at || new Date().toISOString()),
-              role: (m.role === "Owner" ? "Owner" : "Member") as "Owner" | "Member",
-            })),
-          }));
-
-          // If address provided, filter to groups this wallet belongs to
-          if (address) {
-            const lower = address.toLowerCase();
-            return allGroups.filter(
-              (g) =>
-                g.ownerWallet.toLowerCase() === lower ||
-                g.members.some((m) => m.walletAddress.toLowerCase() === lower)
-            );
-          }
-          return allGroups;
-        }
-      } catch (err) {
-        console.warn("Supabase fetchGroups fallback notice:", err);
-      }
-    }
-
-    // 3. Always try the REST API (works in all environments including Vercel serverless)
+    // 2. REST API — the single authoritative source
     try {
       const url = address
         ? `/api/groups?address=${encodeURIComponent(address)}`
@@ -74,34 +35,12 @@ export const groupRepository = {
       const res = await fetch(url, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.groups) && data.groups.length > 0) {
-          return data.groups;
+        if (data.success && Array.isArray(data.groups)) {
+          return data.groups as Group[];
         }
       }
     } catch (err) {
-      console.warn("API fetchGroups notice:", err);
-    }
-
-    // 4. Last resort: read from localStorage (client-side only)
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("splitstellar-group-store");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed?.state?.groups && Array.isArray(parsed.state.groups)) {
-            const localGroups: Group[] = parsed.state.groups;
-            if (address) {
-              const lower = address.toLowerCase();
-              return localGroups.filter(
-                (g) =>
-                  g.ownerWallet.toLowerCase() === lower ||
-                  g.members.some((m) => m.walletAddress.toLowerCase() === lower)
-              );
-            }
-            return localGroups;
-          }
-        }
-      } catch {}
+      console.warn("[groupRepo] API fetch error:", err);
     }
 
     return [];
@@ -115,126 +54,69 @@ export const groupRepository = {
     ownerName: string,
     initialMembers?: Array<{ name: string; walletAddress: string; email?: string }>
   ): Promise<Group> {
-    let group: Group;
+    // Try Soroban (best-effort, falls through silently)
+    let chainGroupId: string | null = null;
+    let chainInviteCode: string | null = null;
     try {
-      group = await createGroupOnChain(name, description, currency, ownerWallet, ownerName);
-    } catch (err) {
-      console.warn("Soroban createGroupOnChain notice:", err);
-      const groupId = `grp-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-      const now = new Date().toISOString();
-      group = {
+      const chainGroup = await createGroupOnChain(name, description, currency, ownerWallet, ownerName);
+      chainGroupId = chainGroup.id;
+      chainInviteCode = chainGroup.inviteCode ?? null;
+    } catch {
+      // Expected — Soroban not available
+    }
+
+    // Build a stable ID and invite code
+    const groupId = chainGroupId || `grp-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const inviteCode = chainInviteCode || `SPLIT-${groupId.slice(-6).toUpperCase()}`;
+
+    // Persist via REST API (→ lib/db.ts → Supabase db_state blob)
+    const res = await fetch(`/api/groups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         id: groupId,
         name,
-        description: description || "",
+        description,
         currency,
-        inviteCode: `SPLIT-${groupId.slice(-6).toUpperCase()}`,
         ownerWallet,
-        createdAt: now,
-        updatedAt: now,
-        status: "Active",
-        totalExpenses: 0,
-        pendingBalance: 0,
-        members: [
-          {
-            id: `mem-${Date.now()}-owner`,
-            name: ownerName || "Owner",
-            walletAddress: ownerWallet,
-            joinedAt: now,
-            role: "Owner",
-          },
-        ],
-      };
+        ownerName,
+        inviteCode,
+        initialMembers,
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success || !data.group) {
+      throw new Error(data.error || "Failed to create group");
     }
 
-    if (Array.isArray(initialMembers) && initialMembers.length > 0) {
-      initialMembers.forEach((m) => {
-        if (!group.members.some((existing) => existing.walletAddress.toLowerCase() === m.walletAddress.toLowerCase())) {
-          group.members.push({
-            id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            name: m.name,
-            walletAddress: m.walletAddress,
-            email: m.email,
-            joinedAt: new Date().toISOString(),
-            role: "Member",
-          });
-        }
-      });
-    }
-
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from("users").upsert(
-          { wallet_address: ownerWallet, name: ownerName },
-          { onConflict: "wallet_address" }
-        );
-        await supabase.from("groups").insert({
-          id: group.id,
-          name: group.name,
-          description: group.description,
-          currency: group.currency,
-          invite_code: group.inviteCode,
-          owner_wallet: ownerWallet,
-          status: "Active",
-        });
-        await supabase.from("group_members").insert({
-          group_id: group.id,
-          wallet_address: ownerWallet,
-          name: ownerName,
-          role: "Owner",
-        });
-      } catch (err) {
-        console.warn("Supabase createGroup sync notice:", err);
-      }
-    }
-
-    try {
-      await fetch(`/api/groups`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: group.id,
-          name,
-          description,
-          currency,
-          ownerWallet,
-          ownerName,
-          inviteCode: group.inviteCode,
-          initialMembers,
-        }),
-      });
-    } catch {
-      // Local sync fallback
-    }
-
-    return group;
+    return data.group as Group;
   },
 
   async joinGroupByInviteCode(inviteCode: string, userWallet: string): Promise<Group> {
     const cleanCode = inviteCode.toUpperCase().trim();
+
     try {
       await joinGroupByInviteCodeOnChain(cleanCode, userWallet);
-    } catch (err) {
-      console.warn("Soroban joinGroupByInviteCode notice:", err);
+    } catch {
+      // Expected — Soroban not available
     }
 
-    const groups = await groupRepository.fetchGroups(userWallet);
-    let joined = groups.find((g) => (g.inviteCode || "").toUpperCase() === cleanCode);
+    // Find the group in the authoritative store
+    const allGroups = await groupRepository.fetchGroups();
+    const found = allGroups.find((g) => (g.inviteCode || "").toUpperCase() === cleanCode);
 
-    if (!joined) {
-      const allGroups = await groupRepository.fetchGroups();
-      joined = allGroups.find((g) => (g.inviteCode || "").toUpperCase() === cleanCode);
+    if (!found) {
+      throw new Error(`No group found matching invite code ${cleanCode}.`);
     }
 
-    if (joined) {
-      const isMem = joined.members.some((m) => m.walletAddress.toLowerCase() === userWallet.toLowerCase());
-      if (!isMem) {
-        const userName = `Member (${userWallet.slice(0, 4)}...${userWallet.slice(-4)})`;
-        joined = await groupRepository.addMember(joined.id, userName, userWallet);
-      }
-      return joined;
-    }
+    const isMember = found.members.some(
+      (m) => m.walletAddress.toLowerCase() === userWallet.toLowerCase()
+    );
+    if (isMember) return found;
 
-    throw new Error(`No group found matching invite code ${cleanCode}.`);
+    const userName = `Member (${userWallet.slice(0, 4)}...${userWallet.slice(-4)})`;
+    return groupRepository.addMember(found.id, userName, userWallet);
   },
 
   async addMember(
@@ -243,117 +125,60 @@ export const groupRepository = {
     walletAddress: string,
     email?: string
   ): Promise<Group> {
-    const inviteCode = `SPLIT-${groupId.slice(-6).toUpperCase()}`;
     try {
-      await joinGroupByInviteCodeOnChain(inviteCode, walletAddress, name);
-    } catch (err) {
-      console.warn("Soroban addMember notice:", err);
+      await joinGroupByInviteCodeOnChain(
+        `SPLIT-${groupId.slice(-6).toUpperCase()}`,
+        walletAddress,
+        name
+      );
+    } catch {
+      // Expected
     }
 
-    try {
-      const res = await fetch(`/api/groups`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: groupId,
-          action: "addMember",
-          memberName: name,
-          walletAddress,
-          email,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.group) {
-        return data.group;
-      }
-    } catch (err) {
-      console.warn("API addMember error:", err);
+    const res = await fetch(`/api/groups`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: groupId, action: "addMember", memberName: name, walletAddress, email }),
+    });
+    const data = await res.json();
+    if (!data.success || !data.group) {
+      throw new Error(data.error || "Failed to add member");
     }
-
-    const groups = await groupRepository.fetchGroups(walletAddress);
-    const group = groups.find((g) => g.id === groupId);
-    if (group) return group;
-
-    return {
-      id: groupId,
-      name: "Group",
-      description: "",
-      currency: "XLM",
-      ownerWallet: walletAddress,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: "Active",
-      totalExpenses: 0,
-      pendingBalance: 0,
-      members: [
-        {
-          id: walletAddress,
-          name,
-          walletAddress,
-          email,
-          joinedAt: new Date().toISOString(),
-          role: "Member",
-        },
-      ],
-    };
+    return data.group as Group;
   },
 
   async removeMember(groupId: string, memberId: string): Promise<Group> {
     try {
       await removeMemberOnChain(groupId, memberId);
-    } catch (err) {
-      console.warn("Soroban removeMember notice:", err);
+    } catch {
+      // Expected
     }
 
-    try {
-      const res = await fetch(`/api/groups`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: groupId,
-          action: "removeMember",
-          memberId,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.group) {
-        return data.group;
-      }
-    } catch (err) {
-      console.warn("API removeMember error:", err);
+    const res = await fetch(`/api/groups`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: groupId, action: "removeMember", memberId }),
+    });
+    const data = await res.json();
+    if (!data.success || !data.group) {
+      throw new Error(data.error || "Failed to remove member");
     }
-
-    const groups = await groupRepository.fetchGroups();
-    return (
-      groups.find((g) => g.id === groupId) || {
-        id: groupId,
-        name: "",
-        description: "",
-        currency: "XLM",
-        ownerWallet: "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: "Active",
-        totalExpenses: 0,
-        pendingBalance: 0,
-        members: [],
-      }
-    );
+    return data.group as Group;
   },
 
   async deleteGroup(groupId: string): Promise<void> {
     try {
       await deleteGroupOnChain(groupId);
-    } catch (err) {
-      console.warn("Soroban deleteGroup notice:", err);
+    } catch {
+      // Expected
     }
 
-    try {
-      await fetch(`/api/groups?id=${encodeURIComponent(groupId)}`, {
-        method: "DELETE",
-      });
-    } catch (err) {
-      console.warn("API deleteGroup notice:", err);
+    const res = await fetch(`/api/groups?id=${encodeURIComponent(groupId)}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || "Failed to delete group");
     }
   },
 };
