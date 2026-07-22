@@ -17,10 +17,10 @@ export default function AdminDashboardView() {
     setLoading(true);
     try {
       const [hRes, sRes, dbRes, cRes] = await Promise.all([
-        fetch("/api/health").then((r) => r.json()),
+        fetch("/api/status/health").then((r) => r.json()),
         fetch("/api/status").then((r) => r.json()),
-        fetch("/api/database/status").then((r) => r.json()),
-        fetch("/api/contracts/status").then((r) => r.json()),
+        fetch("/api/status/database").then((r) => r.json()),
+        fetch("/api/status/contracts").then((r) => r.json()),
       ]);
 
       setHealth(hRes);
