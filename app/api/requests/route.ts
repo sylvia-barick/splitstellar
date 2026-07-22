@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get("groupId");
   const address = searchParams.get("address");
 
-  const db = getDb();
+  const db = await getDb();
   let requests = db.requests;
 
   if (groupId) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, groupId, from, to, amount, currency, note, type, status, transactionHash, ledgerNumber, returnTxHash } = body;
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const newReq: MoneyRequest = {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     } else {
       db.requests.push(newReq);
     }
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true, request: newReq });
   } catch (err) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, status, transactionHash, ledgerNumber, returnTxHash } = await request.json();
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const index = db.requests.findIndex((r) => r.id === id);
@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest) {
     if (returnTxHash) db.requests[index].returnTxHash = returnTxHash;
     db.requests[index].updatedAt = now;
 
-    saveDb(db);
+    await saveDb(db);
     return NextResponse.json({ success: true, request: db.requests[index] });
   } catch (err) {
     return NextResponse.json(

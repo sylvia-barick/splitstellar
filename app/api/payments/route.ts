@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get("groupId");
   const address = searchParams.get("address");
 
-  const db = getDb();
+  const db = await getDb();
   let payments = db.payments;
 
   if (groupId) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, groupId, from, to, amount, currency, note, transactionHash, ledgerNumber, settlementId, requestId, status } = body;
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const newPayment: Payment = {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     } else {
       db.payments.push(newPayment);
     }
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true, payment: newPayment });
   } catch (err) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, status, transactionHash, ledgerNumber } = await request.json();
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const index = db.payments.findIndex((p) => p.id === id);
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
     if (ledgerNumber !== undefined) db.payments[index].ledgerNumber = ledgerNumber;
     db.payments[index].updatedAt = now;
 
-    saveDb(db);
+    await saveDb(db);
     return NextResponse.json({ success: true, payment: db.payments[index] });
   } catch (err) {
     return NextResponse.json(

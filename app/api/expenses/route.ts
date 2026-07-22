@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get("groupId");
   const address = searchParams.get("address");
 
-  const db = getDb();
+  const db = await getDb();
   let expenses = db.expenses;
 
   if (groupId) {
@@ -29,18 +29,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const expenseData = await request.json();
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const newExpense: Expense = {
       ...expenseData,
-      id: `exp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: now,
+      id: expenseData.id || `exp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: expenseData.createdAt || now,
       updatedAt: now,
     };
 
-    db.expenses.push(newExpense);
-    saveDb(db);
+    const existing = db.expenses.findIndex((e) => e.id === newExpense.id);
+    if (existing >= 0) {
+      db.expenses[existing] = newExpense;
+    } else {
+      db.expenses.push(newExpense);
+    }
+    await saveDb(db);
 
     return NextResponse.json({ success: true, expense: newExpense });
   } catch (err) {
@@ -54,7 +59,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, expenseData } = await request.json();
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const index = db.expenses.findIndex((e) => e.id === id);
@@ -68,7 +73,7 @@ export async function PUT(request: NextRequest) {
       updatedAt: now,
     };
 
-    saveDb(db);
+    await saveDb(db);
     return NextResponse.json({ success: true, expense: db.expenses[index] });
   } catch (err) {
     return NextResponse.json(
@@ -87,9 +92,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing expense ID" }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
     db.expenses = db.expenses.filter((e) => e.id !== id);
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true });
   } catch (err) {

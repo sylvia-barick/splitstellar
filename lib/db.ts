@@ -48,7 +48,7 @@ export interface DatabaseSchema {
   analyticsCache?: AnalyticsCache;
 }
 
-const initialDb: DatabaseSchema = {
+const EMPTY_DB: DatabaseSchema = {
   users: [],
   groups: [],
   expenses: [],
@@ -58,185 +58,194 @@ const initialDb: DatabaseSchema = {
   notifications: [],
 };
 
-// Global reference for in-memory caching.
-// On Vercel serverless, each function instance has its own memory but the global
-// persists within the same warm instance between requests, which is the best we
-// can do without an external DB. Supabase should be configured for multi-instance
-// persistence.
-const globalForDb = global as unknown as {
-  splitstellarDb: DatabaseSchema | null;
-  dbPathResolved: string | null;
-  dbDirResolved: string | null;
-  supabaseLoaded: boolean;
+function cloneDb(src: DatabaseSchema): DatabaseSchema {
+  return {
+    users: src.users ?? [],
+    groups: src.groups ?? [],
+    expenses: src.expenses ?? [],
+    payments: src.payments ?? [],
+    requests: src.requests ?? [],
+    activities: src.activities ?? [],
+    notifications: src.notifications ?? [],
+    analyticsCache: src.analyticsCache,
+  };
+}
+
+// ─── Global singleton ────────────────────────────────────────────────────────
+// On Vercel each serverless function keeps its own module scope between warm
+// invocations on the same instance. We use a global object so the in-memory
+// cache is shared across all API calls hitting the same warm lambda.
+const g = global as unknown as {
+  _ssDb: DatabaseSchema | null;
+  _ssDbLoading: Promise<DatabaseSchema> | null;
+  _ssDbFile: string | null;
+  _ssDbWritable: boolean | null;
 };
-
-if (!globalForDb.splitstellarDb) {
-  globalForDb.splitstellarDb = null;
-  globalForDb.dbPathResolved = null;
-  globalForDb.dbDirResolved = null;
-  globalForDb.supabaseLoaded = false;
+if (!g._ssDb) {
+  g._ssDb = null;
+  g._ssDbLoading = null;
+  g._ssDbFile = null;
+  g._ssDbWritable = null;
 }
 
-function resolveDbPaths() {
-  if (globalForDb.dbPathResolved && globalForDb.dbDirResolved) {
-    return { dbDir: globalForDb.dbDirResolved, dbFile: globalForDb.dbPathResolved };
+// ─── Local file helpers ───────────────────────────────────────────────────────
+function resolveFile(): { file: string; writable: boolean } {
+  if (g._ssDbFile !== null) {
+    return { file: g._ssDbFile, writable: g._ssDbWritable ?? false };
   }
 
-  // Try the project .data dir first; fall back to OS temp dir (needed on Vercel)
-  let dbDir = path.join(process.cwd(), ".data");
-  let dbFile = path.join(dbDir, "splitstellar-db.json");
+  const candidates = [
+    path.join(process.cwd(), ".data", "splitstellar-db.json"),
+    path.join(os.tmpdir(), "splitstellar", "splitstellar-db.json"),
+  ];
 
-  try {
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-    }
-    // Quick write-test to verify the directory is writable
-    const testFile = path.join(dbDir, ".write-test");
-    fs.writeFileSync(testFile, "1");
-    fs.unlinkSync(testFile);
-  } catch {
-    // process.cwd() is read-only (Vercel serverless) — use /tmp instead
-    console.warn("Filesystem at process.cwd() is read-only. Using system temp directory for DB.");
-    dbDir = path.join(os.tmpdir(), "splitstellar");
-    dbFile = path.join(dbDir, "splitstellar-db.json");
+  for (const file of candidates) {
     try {
-      if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true });
-      }
-    } catch (e) {
-      console.error("Failed to create backup database directory in tmp:", e);
+      const dir = path.dirname(file);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const probe = file + ".probe";
+      fs.writeFileSync(probe, "1");
+      fs.unlinkSync(probe);
+      g._ssDbFile = file;
+      g._ssDbWritable = true;
+      return { file, writable: true };
+    } catch {
+      // try next candidate
     }
   }
 
-  globalForDb.dbDirResolved = dbDir;
-  globalForDb.dbPathResolved = dbFile;
-  return { dbDir, dbFile };
+  // Completely read-only (should not happen in practice, but be safe)
+  g._ssDbFile = candidates[0];
+  g._ssDbWritable = false;
+  return { file: candidates[0], writable: false };
 }
 
-/**
- * Load DB state from Supabase asynchronously.
- * Called on cold start if Supabase is configured, so the in-memory cache
- * stays warm with the latest persisted data across serverless instances.
- */
-async function loadFromSupabase(): Promise<DatabaseSchema | null> {
+function readFile(): DatabaseSchema | null {
+  try {
+    const { file } = resolveFile();
+    if (!fs.existsSync(file)) return null;
+    const raw = fs.readFileSync(file, "utf-8").trim();
+    if (!raw) return null;
+    return cloneDb(JSON.parse(raw) as DatabaseSchema);
+  } catch {
+    return null;
+  }
+}
+
+function writeFile(data: DatabaseSchema): void {
+  try {
+    const { file, writable } = resolveFile();
+    if (!writable) return;
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf-8");
+  } catch {
+    // ignore — Vercel read-only fs
+  }
+}
+
+// ─── Supabase helpers ─────────────────────────────────────────────────────────
+// The entire DB is stored as a single JSON blob in the `users` table under the
+// synthetic key "db_state". This is the ONE durable store on Vercel.
+
+async function supabaseLoad(): Promise<DatabaseSchema | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await supabase
       .from("users")
       .select("name")
       .eq("wallet_address", "db_state")
-      .single();
-
+      .maybeSingle();
     if (error || !data?.name) return null;
-
-    const parsed = JSON.parse(data.name) as DatabaseSchema;
-    return {
-      users: parsed.users || [],
-      groups: parsed.groups || [],
-      expenses: parsed.expenses || [],
-      payments: parsed.payments || [],
-      requests: parsed.requests || [],
-      activities: parsed.activities || [],
-      notifications: parsed.notifications || [],
-      analyticsCache: parsed.analyticsCache,
-    };
+    return cloneDb(JSON.parse(data.name) as DatabaseSchema);
   } catch (err) {
-    console.warn("Supabase DB load notice:", err instanceof Error ? err.message : err);
+    console.warn("[db] Supabase load error:", err instanceof Error ? err.message : err);
     return null;
   }
 }
 
-function readDbFromFile(): DatabaseSchema {
-  const { dbFile } = resolveDbPaths();
+async function supabaseSave(data: DatabaseSchema): Promise<void> {
+  if (!isSupabaseConfigured) return;
   try {
-    if (!fs.existsSync(dbFile)) {
-      try {
-        fs.writeFileSync(dbFile, JSON.stringify(initialDb, null, 2), "utf-8");
-      } catch {
-        // ignore write error (read-only fs)
+    const { error } = await supabase.from("users").upsert(
+      { wallet_address: "db_state", name: JSON.stringify(data) },
+      { onConflict: "wallet_address" }
+    );
+    if (error) {
+      console.error("[db] Supabase save error:", error.message);
+    }
+  } catch (err) {
+    console.error("[db] Supabase save exception:", err instanceof Error ? err.message : err);
+  }
+}
+
+// ─── Bootstrap ───────────────────────────────────────────────────────────────
+// Called once per cold-start. Returns a promise so concurrent API calls
+// on the same cold-start wait for the SAME load instead of each firing their own.
+
+function bootstrap(): Promise<DatabaseSchema> {
+  if (g._ssDb !== null) {
+    return Promise.resolve(g._ssDb);
+  }
+  if (g._ssDbLoading !== null) {
+    return g._ssDbLoading;
+  }
+
+  g._ssDbLoading = (async () => {
+    // 1. Supabase is the authoritative production store
+    if (isSupabaseConfigured) {
+      const remote = await supabaseLoad();
+      if (remote) {
+        g._ssDb = remote;
+        writeFile(remote); // warm the local file cache
+        g._ssDbLoading = null;
+        return remote;
       }
-      return { ...initialDb };
     }
 
-    const content = fs.readFileSync(dbFile, "utf-8");
-    if (!content.trim()) return { ...initialDb };
-
-    const parsed = JSON.parse(content) as DatabaseSchema;
-    return {
-      users: parsed.users || [],
-      groups: parsed.groups || [],
-      expenses: parsed.expenses || [],
-      payments: parsed.payments || [],
-      requests: parsed.requests || [],
-      activities: parsed.activities || [],
-      notifications: parsed.notifications || [],
-      analyticsCache: parsed.analyticsCache,
-    };
-  } catch (err) {
-    console.error("Error reading database file:", err);
-    return { ...initialDb };
-  }
-}
-
-export function getDb(): DatabaseSchema {
-  // Return in-memory cached version if available
-  if (globalForDb.splitstellarDb) {
-    return globalForDb.splitstellarDb;
-  }
-
-  // Load from file (synchronous — fine for API routes)
-  const db = readDbFromFile();
-  globalForDb.splitstellarDb = db;
-
-  // Kick off async Supabase warm-up for the next request (fire-and-forget)
-  if (isSupabaseConfigured && !globalForDb.supabaseLoaded) {
-    loadFromSupabase().then((supabaseDb) => {
-      if (supabaseDb) {
-        globalForDb.splitstellarDb = supabaseDb;
-        globalForDb.supabaseLoaded = true;
-        // Also persist locally so subsequent file reads are fresh
-        const { dbFile } = resolveDbPaths();
-        try {
-          fs.writeFileSync(dbFile, JSON.stringify(supabaseDb, null, 2), "utf-8");
-        } catch {
-          // ignore
-        }
+    // 2. Local file (works perfectly in development, and on first Vercel deploy)
+    const local = readFile();
+    if (local) {
+      g._ssDb = local;
+      // If Supabase is configured, push the local data up so it's durable
+      if (isSupabaseConfigured) {
+        supabaseSave(local).catch(() => {});
       }
-    });
-  }
+      g._ssDbLoading = null;
+      return local;
+    }
 
-  return db;
+    // 3. Fresh install — empty database
+    const empty = cloneDb(EMPTY_DB);
+    g._ssDb = empty;
+    g._ssDbLoading = null;
+    return empty;
+  })();
+
+  return g._ssDbLoading;
 }
 
-export function saveDb(data: DatabaseSchema): void {
-  // Always update in-memory cache immediately
-  globalForDb.splitstellarDb = data;
+// ─── Public API ───────────────────────────────────────────────────────────────
 
-  // Persist to local file (best-effort — may fail on Vercel read-only fs)
-  const { dbFile } = resolveDbPaths();
-  try {
-    fs.writeFileSync(dbFile, JSON.stringify(data, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("Could not write DB to local file (expected on Vercel):", err instanceof Error ? err.message : err);
-  }
-
-  // Backup to Supabase asynchronously if configured (this is the durable store)
+export async function getDb(): Promise<DatabaseSchema> {
   if (isSupabaseConfigured) {
-    supabase
-      .from("users")
-      .upsert(
-        {
-          wallet_address: "db_state",
-          name: JSON.stringify(data),
-        },
-        { onConflict: "wallet_address" }
-      )
-      .then(({ error }) => {
-        if (error) {
-          console.error("Error backing up DB to Supabase:", error);
-        } else {
-          globalForDb.supabaseLoaded = true;
-        }
-      });
+    const remote = await supabaseLoad();
+    if (remote) {
+      g._ssDb = remote;
+      writeFile(remote); // warm the local file cache
+      return remote;
+    }
   }
+  if (g._ssDb !== null) return g._ssDb;
+  return bootstrap();
+}
+
+/**
+ * saveDb() — writes to in-memory cache, local file, AND Supabase (awaited).
+ *
+ * Awaiting Supabase ensures the data is durable before the API response is
+ * sent, preventing loss when the serverless instance is recycled.
+ */
+export async function saveDb(data: DatabaseSchema): Promise<void> {
+  g._ssDb = data;
+  writeFile(data);
+  await supabaseSave(data);
 }

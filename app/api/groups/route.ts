@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get("address");
 
-  const db = getDb();
+  const db = await getDb();
   let groups = db.groups;
 
   if (address) {
@@ -27,13 +27,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { id, name, description, currency, ownerWallet, ownerName, inviteCode, initialMembers } = body;
 
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const ownerMember: Member = {
       id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: ownerName || "Group Owner",
-      walletAddress: ownerWallet || "GCSPLITSTELLAROWNERDEMOADDRESS1234567890ABCDEFG12345",
+      walletAddress: ownerWallet || "",
       joinedAt: now,
       role: "Owner",
     };
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     } else {
       db.groups.push(newGroup);
     }
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true, group: newGroup });
   } catch (err) {
@@ -93,7 +93,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, action, memberName, walletAddress, memberId, email, groupData } = body;
 
-    const db = getDb();
+    const db = await getDb();
     const groupIndex = db.groups.findIndex((g) => g.id === id);
 
     if (groupIndex === -1) {
@@ -126,7 +126,7 @@ export async function PUT(request: NextRequest) {
       db.groups[groupIndex] = { ...group, ...groupData, updatedAt: now };
     }
 
-    saveDb(db);
+    await saveDb(db);
     return NextResponse.json({ success: true, group: db.groups[groupIndex] });
   } catch (err) {
     return NextResponse.json(
@@ -145,10 +145,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing group ID" }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = await getDb();
     db.groups = db.groups.filter((g) => g.id !== id);
     db.expenses = db.expenses.filter((e) => e.groupId !== id);
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true });
   } catch (err) {

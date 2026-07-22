@@ -143,26 +143,32 @@ export default function SettlementPlanView({ group }: SettlementPlanProps) {
       return;
     }
 
-    if (userWallet.toLowerCase() !== req.from.toLowerCase()) {
+    const isDirectLoan = req.type === "DirectLoan";
+    const returnSender = isDirectLoan ? req.to : req.from;
+    const returnReceiver = isDirectLoan ? req.from : req.to;
+
+    if (userWallet.toLowerCase() !== returnSender.toLowerCase()) {
       toast.error("Permission Denied", {
-        description: "Only the requester who received funds can return the money.",
+        description: isDirectLoan
+          ? "Only the borrower can repay the direct loan."
+          : "Only the requester who received funds can return the money.",
       });
       return;
     }
 
     setIsProcessingRequestId(req.id);
     toast.info("Opening Freighter Wallet...", {
-      description: `Please sign the ${req.amount.toFixed(2)} ${req.currency} payment transaction to return money back to ${getMemberName(req.to)} on Stellar Testnet.`,
+      description: `Please sign the ${req.amount.toFixed(2)} ${req.currency} payment transaction to return money back to ${getMemberName(returnReceiver)} on Stellar Testnet.`,
     });
 
     try {
       const result = await settlementAdapter.executeSettlement({
         senderWallet: userWallet,
-        receiverWallet: req.to,
+        receiverWallet: returnReceiver,
         amount: req.amount,
         currency: req.currency,
         groupId: req.groupId,
-        note: req.note ? `Returned: ${req.note}` : "Returned Money Request",
+        note: req.note ? `Returned: ${req.note}` : (isDirectLoan ? "Repaid Direct Loan" : "Returned Money Request"),
       });
 
       if (!result.success || !result.hash) {
@@ -173,14 +179,14 @@ export default function SettlementPlanView({ group }: SettlementPlanProps) {
       const { returnRequestedMoney } = useRequestStore.getState();
       await returnRequestedMoney(req.id, result.hash, result.ledger);
 
-      // 2. Create Payment record from Requester (req.from) to Payer (req.to)
+      // 2. Create Payment record from returnSender to returnReceiver
       const newPayment = await createPayment(
         req.groupId,
-        req.from,
-        req.to,
+        returnSender,
+        returnReceiver,
         req.amount,
         req.currency,
-        req.note ? `Returned: ${req.note}` : "Returned Money Request",
+        req.note ? `Returned: ${req.note}` : (isDirectLoan ? "Repaid Direct Loan" : "Returned Money Request"),
         result.hash,
         result.ledger,
         undefined
@@ -555,7 +561,8 @@ export default function SettlementPlanView({ group }: SettlementPlanProps) {
                               Reject
                             </Button>
                           </div>
-                        ) : req.status === "Paid" && req.from.toLowerCase() === activeAddr ? (
+                        ) : ((req.type === "DirectLoan" && req.status === "Accepted" && req.to.toLowerCase() === activeAddr) ||
+                             (req.type !== "DirectLoan" && req.status === "Paid" && req.from.toLowerCase() === activeAddr)) ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <Button
                               onClick={() => handleReturnMoney(req)}

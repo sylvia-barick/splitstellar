@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export async function GET() {
-  const db = getDb();
+  const db = await getDb();
   return NextResponse.json({
     success: true,
     database: {
       status: "connected",
-      storageType: "JSON Persistent Store",
+      storageType: isSupabaseConfigured ? "Supabase (production)" : "Local JSON (development)",
       recordCounts: {
         users: db.users.length,
         groups: db.groups.length,

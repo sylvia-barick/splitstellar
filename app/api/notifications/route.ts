@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const wallet = searchParams.get("wallet");
 
-  const db = getDb();
+  const db = await getDb();
   let notifications = db.notifications;
 
   if (wallet) {
@@ -15,24 +15,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Sort newest first
   notifications.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  return NextResponse.json({
-    success: true,
-    unreadCount,
-    notifications,
-  });
+  return NextResponse.json({ success: true, unreadCount, notifications });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { walletAddress, type, title, message, metadata } = await request.json();
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     const newNotif: AppNotification = {
@@ -47,7 +42,7 @@ export async function POST(request: NextRequest) {
     };
 
     db.notifications.unshift(newNotif);
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true, notification: newNotif });
   } catch (err) {
@@ -61,7 +56,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, markAllRead, walletAddress } = await request.json();
-    const db = getDb();
+    const db = await getDb();
 
     if (markAllRead && walletAddress) {
       const lower = walletAddress.toLowerCase();
@@ -72,12 +67,10 @@ export async function PUT(request: NextRequest) {
       });
     } else if (id) {
       const index = db.notifications.findIndex((n) => n.id === id);
-      if (index !== -1) {
-        db.notifications[index].read = true;
-      }
+      if (index !== -1) db.notifications[index].read = true;
     }
 
-    saveDb(db);
+    await saveDb(db);
     return NextResponse.json({ success: true, notifications: db.notifications });
   } catch (err) {
     return NextResponse.json(

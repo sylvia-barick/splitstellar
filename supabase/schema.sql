@@ -101,6 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_expenses_group_id ON public.expenses(group_id);
 CREATE INDEX IF NOT EXISTS idx_payments_group_id ON public.payments(group_id);
 
 -- Enable Supabase Realtime Replication
+ALTER PUBLICATION supabase_realtime ADD TABLE public.users;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.groups;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.group_members;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.expenses;

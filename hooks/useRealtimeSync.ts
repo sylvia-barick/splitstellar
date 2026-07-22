@@ -36,6 +36,14 @@ export function useRealtimeSync() {
       try {
         channel = supabase
           .channel("splitstellar-realtime")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "users", filter: "wallet_address=eq.db_state" },
+            () => {
+              console.log("[realtime] Database updated, synchronizing client state...");
+              syncAllData();
+            }
+          )
           .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => syncAllData())
           .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => syncAllData())
           .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => syncAllData())

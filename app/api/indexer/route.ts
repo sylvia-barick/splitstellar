@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, saveDb, AppNotification } from "@/lib/db";
+import { getDb, saveDb } from "@/lib/db";
 import { sorobanServer, CONTRACT_IDS } from "@/lib/soroban/contract";
 
 export async function GET() {
-  const db = getDb();
+  const db = await getDb();
   return NextResponse.json({
     success: true,
     stats: {
@@ -22,9 +22,8 @@ export async function POST(request: NextRequest) {
   try {
     const { action } = await request.json();
     if (action === "reindex") {
-      const db = getDb();
+      const db = await getDb();
 
-      // Poll latest events from Soroban RPC if available
       try {
         const contractIds = [
           CONTRACT_IDS.GROUP,
@@ -46,8 +45,6 @@ export async function POST(request: NextRequest) {
           eventsRes.events.forEach((evt) => {
             const topic = evt.topic && evt.topic.length > 0 ? String(evt.topic[0]) : "Event";
             const now = new Date().toISOString();
-
-            // Create indexing activity log if not already present
             const exists = db.activities.some((a) => a.id === evt.id);
             if (!exists && evt.id) {
               db.activities.unshift({
@@ -55,7 +52,7 @@ export async function POST(request: NextRequest) {
                 groupId: "indexer",
                 actorAddress: String(evt.contractId || "System"),
                 actorName: "Soroban Indexer",
-                type: "ContractEvent" as any,
+                type: "ContractEvent" as never,
                 description: `Indexed chain event topic: ${topic}`,
                 createdAt: now,
               });
@@ -66,10 +63,8 @@ export async function POST(request: NextRequest) {
         console.warn("Indexer RPC notice:", rpcErr);
       }
 
-      // Recompute analytics cache
       const totalExpenses = db.expenses.reduce((sum, e) => sum + e.amount, 0);
       const totalPayments = db.payments.reduce((sum, p) => sum + p.amount, 0);
-
       const categorySpend: Record<string, number> = {};
       db.expenses.forEach((e) => {
         const cat = e.category || "General";
@@ -88,7 +83,7 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date().toISOString(),
       };
 
-      saveDb(db);
+      await saveDb(db);
       return NextResponse.json({ success: true, message: "Reindexing completed", analyticsCache: db.analyticsCache });
     }
 

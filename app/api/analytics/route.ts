@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const groupId = searchParams.get("groupId");
 
-  const db = getDb();
+  const db = await getDb();
   let expenses = db.expenses;
   let payments = db.payments;
   let requests = db.requests;
@@ -25,17 +25,14 @@ export async function GET(request: NextRequest) {
   const categoryBreakdown: Record<string, { amount: number; count: number }> = {};
   expenses.forEach((e) => {
     const cat = e.category || "General";
-    if (!categoryBreakdown[cat]) {
-      categoryBreakdown[cat] = { amount: 0, count: 0 };
-    }
+    if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { amount: 0, count: 0 };
     categoryBreakdown[cat].amount += e.amount;
     categoryBreakdown[cat].count += 1;
   });
 
   const spenderMap: Record<string, number> = {};
   expenses.forEach((e) => {
-    const payer = e.paidBy;
-    spenderMap[payer] = (spenderMap[payer] || 0) + e.amount;
+    spenderMap[e.paidBy] = (spenderMap[e.paidBy] || 0) + e.amount;
   });
 
   const topSpenders = Object.entries(spenderMap)

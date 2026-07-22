@@ -87,7 +87,21 @@ export default function DashboardView() {
     return requests.filter((r) => {
       const isUser = r.from.toLowerCase() === activeAddr || r.to.toLowerCase() === activeAddr;
       if (!isUser) return false;
-      return r.status === "Pending" || (r.status === "Paid" && r.from.toLowerCase() === activeAddr);
+      
+      const isDirectLoan = r.type === "DirectLoan";
+      if (isDirectLoan) {
+        // Direct loans require action (repayment) from the borrower when status is "Accepted"
+        return (
+          r.status === "Accepted" && r.to.toLowerCase() === activeAddr
+        );
+      } else {
+        // Standard requests require action (payment) from target when "Pending",
+        // and return of money from requester when "Paid"
+        return (
+          (r.status === "Pending" && r.to.toLowerCase() === activeAddr) ||
+          (r.status === "Paid" && r.from.toLowerCase() === activeAddr)
+        );
+      }
     });
   }, [requests, activeAddr]);
 
@@ -268,9 +282,15 @@ export default function DashboardView() {
       return;
     }
 
-    if (userWallet.toLowerCase() !== r.from.toLowerCase()) {
+    const isDirectLoan = r.type === "DirectLoan";
+    const returnSender = isDirectLoan ? r.to : r.from;
+    const returnReceiver = isDirectLoan ? r.from : r.to;
+
+    if (userWallet.toLowerCase() !== returnSender.toLowerCase()) {
       toast.error("Permission Denied", {
-        description: "Only the requester who received funds can return the money.",
+        description: isDirectLoan
+          ? "Only the borrower can repay the direct loan."
+          : "Only the requester who received funds can return the money.",
       });
       return;
     }
@@ -283,11 +303,11 @@ export default function DashboardView() {
     try {
       const result = await settlementAdapter.executeSettlement({
         senderWallet: userWallet,
-        receiverWallet: r.to,
+        receiverWallet: returnReceiver,
         amount: r.amount,
         currency: r.currency,
         groupId: r.groupId,
-        note: r.note ? `Returned: ${r.note}` : "Returned Money Request",
+        note: r.note ? `Returned: ${r.note}` : (isDirectLoan ? "Repaid Direct Loan" : "Returned Money Request"),
       });
 
       if (!result.success || !result.hash) {
@@ -301,11 +321,11 @@ export default function DashboardView() {
       // 2. Create Payment record for transactions list & balances
       const newPayment = await createPayment(
         r.groupId,
-        r.from,
-        r.to,
+        returnSender,
+        returnReceiver,
         r.amount,
         r.currency,
-        r.note ? `Returned: ${r.note}` : "Returned Money Request",
+        r.note ? `Returned: ${r.note}` : (isDirectLoan ? "Repaid Direct Loan" : "Returned Money Request"),
         result.hash,
         result.ledger,
         undefined,
@@ -646,7 +666,8 @@ export default function DashboardView() {
                               Reject
                             </Button>
                           </div>
-                        ) : r.status === "Paid" && r.from.toLowerCase() === activeAddr ? (
+                        ) : ((r.type === "DirectLoan" && r.status === "Accepted" && r.to.toLowerCase() === activeAddr) ||
+                             (r.type !== "DirectLoan" && r.status === "Paid" && r.from.toLowerCase() === activeAddr)) ? (
                           <div className="flex items-center gap-1.5">
                             <Button
                               onClick={() => handleReturnMoney(r)}

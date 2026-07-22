@@ -8,19 +8,12 @@ export async function GET(request: NextRequest) {
   if (!q) {
     return NextResponse.json({
       success: true,
-      results: {
-        groups: [],
-        expenses: [],
-        payments: [],
-        requests: [],
-        members: [],
-      },
+      results: { groups: [], expenses: [], payments: [], requests: [], members: [] },
     });
   }
 
-  const db = getDb();
+  const db = await getDb();
 
-  // Search Groups
   const matchingGroups = db.groups.filter(
     (g) =>
       g.name.toLowerCase().includes(q) ||
@@ -29,7 +22,6 @@ export async function GET(request: NextRequest) {
       (g.inviteCode || "").toLowerCase().includes(q)
   );
 
-  // Search Expenses
   const matchingExpenses = db.expenses.filter(
     (e) =>
       e.title.toLowerCase().includes(q) ||
@@ -38,7 +30,6 @@ export async function GET(request: NextRequest) {
       e.paidBy.toLowerCase().includes(q)
   );
 
-  // Search Payments / Transactions
   const matchingPayments = db.payments.filter(
     (p) =>
       p.id.toLowerCase().includes(q) ||
@@ -48,7 +39,6 @@ export async function GET(request: NextRequest) {
       p.note?.toLowerCase().includes(q)
   );
 
-  // Search Money Requests
   const matchingRequests = db.requests.filter(
     (r) =>
       r.id.toLowerCase().includes(q) ||
@@ -58,7 +48,6 @@ export async function GET(request: NextRequest) {
       r.transactionHash?.toLowerCase().includes(q)
   );
 
-  // Extract matching members
   const memberSet = new Map<string, { walletAddress: string; name: string; groupName: string }>();
   db.groups.forEach((g) => {
     g.members.forEach((m) => {

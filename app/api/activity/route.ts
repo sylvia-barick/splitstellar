@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get("groupId");
   const address = searchParams.get("address");
 
-  const db = getDb();
+  const db = await getDb();
   let activities = db.activities;
 
   if (groupId) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { groupId, actorAddress, actorName, type, description, amount, currency } = await request.json();
-    const db = getDb();
+    const db = await getDb();
 
     const newAct: ActivityItem = {
       id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     };
 
     db.activities.unshift(newAct);
-    saveDb(db);
+    await saveDb(db);
 
     return NextResponse.json({ success: true, activity: newAct });
   } catch (err) {
