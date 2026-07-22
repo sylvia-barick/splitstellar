@@ -1,12 +1,4 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "env": {
-    "NEXT_PUBLIC_STELLAR_NETWORK": "testnet",
-    "NEXT_PUBLIC_SOROBAN_RPC_URL": "https://soroban-testnet.stellar.org"
-  },
   "headers": [
     {
       "source": "/api/(.*)",
