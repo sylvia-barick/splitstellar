@@ -121,6 +121,7 @@ function resolveFile(): { file: string; writable: boolean } {
 }
 
 function readFile(): DatabaseSchema | null {
+  if (isSupabaseConfigured) return null;
   try {
     const { file } = resolveFile();
     if (!fs.existsSync(file)) return null;
@@ -133,6 +134,7 @@ function readFile(): DatabaseSchema | null {
 }
 
 function writeFile(data: DatabaseSchema): void {
+  if (isSupabaseConfigured) return;
   try {
     const { file, writable } = resolveFile();
     if (!writable) return;
@@ -146,19 +148,34 @@ function writeFile(data: DatabaseSchema): void {
 // The entire DB is stored as a single JSON blob in the `users` table under the
 // synthetic key "db_state". This is the ONE durable store on Vercel.
 
-async function supabaseLoad(): Promise<DatabaseSchema | null> {
-  if (!isSupabaseConfigured) return null;
+interface SupabaseLoadResult {
+  success: boolean;
+  data: DatabaseSchema | null;
+  error?: any;
+}
+
+async function supabaseLoad(): Promise<SupabaseLoadResult> {
+  if (!isSupabaseConfigured) {
+    return { success: true, data: null };
+  }
   try {
     const { data, error } = await supabase
       .from("users")
       .select("name")
       .eq("wallet_address", "db_state")
       .maybeSingle();
-    if (error || !data?.name) return null;
-    return cloneDb(JSON.parse(data.name) as DatabaseSchema);
+
+    if (error) {
+      console.error("[db] Supabase load error:", error.message);
+      return { success: false, data: null, error };
+    }
+    if (!data?.name) {
+      return { success: true, data: null };
+    }
+    return { success: true, data: cloneDb(JSON.parse(data.name) as DatabaseSchema) };
   } catch (err) {
-    console.warn("[db] Supabase load error:", err instanceof Error ? err.message : err);
-    return null;
+    console.error("[db] Supabase load exception:", err instanceof Error ? err.message : err);
+    return { success: false, data: null, error: err };
   }
 }
 
@@ -171,9 +188,11 @@ async function supabaseSave(data: DatabaseSchema): Promise<void> {
     );
     if (error) {
       console.error("[db] Supabase save error:", error.message);
+      throw new Error(`Supabase save error: ${error.message}`);
     }
   } catch (err) {
     console.error("[db] Supabase save exception:", err instanceof Error ? err.message : err);
+    throw err;
   }
 }
 
@@ -192,22 +211,30 @@ function bootstrap(): Promise<DatabaseSchema> {
   g._ssDbLoading = (async () => {
     // 1. Supabase is the authoritative production store
     if (isSupabaseConfigured) {
-      const remote = await supabaseLoad();
-      if (remote) {
-        g._ssDb = remote;
-        writeFile(remote); // warm the local file cache
+      let retries = 3;
+      let res = await supabaseLoad();
+      while (!res.success && retries > 0) {
+        retries--;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        res = await supabaseLoad();
+      }
+      if (!res.success) {
+        throw new Error(`Failed to bootstrap database from Supabase: ${JSON.stringify(res.error)}`);
+      }
+      if (res.data) {
+        g._ssDb = res.data;
         g._ssDbLoading = null;
-        return remote;
+        return res.data;
       }
     }
 
+    // Only if Supabase query succeeded but returned null (first run), or if Supabase is not configured:
     // 2. Local file (works perfectly in development, and on first Vercel deploy)
     const local = readFile();
     if (local) {
       g._ssDb = local;
-      // If Supabase is configured, push the local data up so it's durable
       if (isSupabaseConfigured) {
-        supabaseSave(local).catch(() => {});
+        await supabaseSave(local);
       }
       g._ssDbLoading = null;
       return local;
@@ -216,6 +243,9 @@ function bootstrap(): Promise<DatabaseSchema> {
     // 3. Fresh install — empty database
     const empty = cloneDb(EMPTY_DB);
     g._ssDb = empty;
+    if (isSupabaseConfigured) {
+      await supabaseSave(empty);
+    }
     g._ssDbLoading = null;
     return empty;
   })();
@@ -227,13 +257,22 @@ function bootstrap(): Promise<DatabaseSchema> {
 
 export async function getDb(): Promise<DatabaseSchema> {
   if (isSupabaseConfigured) {
-    const remote = await supabaseLoad();
-    if (remote) {
-      g._ssDb = remote;
-      writeFile(remote); // warm the local file cache
-      return remote;
+    let retries = 3;
+    let res = await supabaseLoad();
+    while (!res.success && retries > 0) {
+      retries--;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      res = await supabaseLoad();
+    }
+    if (!res.success) {
+      throw new Error(`Failed to load database from Supabase: ${JSON.stringify(res.error)}`);
+    }
+    if (res.data) {
+      g._ssDb = res.data;
+      return res.data;
     }
   }
+
   if (g._ssDb !== null) return g._ssDb;
   return bootstrap();
 }
@@ -247,5 +286,7 @@ export async function getDb(): Promise<DatabaseSchema> {
 export async function saveDb(data: DatabaseSchema): Promise<void> {
   g._ssDb = data;
   writeFile(data);
-  await supabaseSave(data);
+  if (isSupabaseConfigured) {
+    await supabaseSave(data);
+  }
 }
