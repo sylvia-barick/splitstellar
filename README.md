@@ -52,7 +52,8 @@ SplitStellar is a decentralized expense sharing and peer-to-peer debt simplifica
 14. [Application Screenshots](#-application-screenshots)
 15. [Security & Performance](#-security--performance)
 16. [Testing & Quality Assurance](#-testing--quality-assurance)
-17. [License & Acknowledgements](#-license--acknowledgements)
+17. [CI/CD Pipelines & DevOps Automation](#-cicd-pipelines--devops-automation)
+18. [License & Acknowledgements](#-license--acknowledgements)
 
 ---
 
@@ -469,6 +470,28 @@ Our development testing utilized **10+ distinct Stellar Testnet wallets** checki
   cd contracts
   cargo test
   ```
+
+---
+
+## 🔁 CI/CD Pipelines & DevOps Automation
+
+SplitStellar utilizes GitHub Actions to automate code quality verification, unit testing, compiling of smart contracts, and production build checks on every push to main branches.
+
+### 1. Next.js Continuous Integration ([ci.yml](file:///d:/splitstellar/.github/workflows/ci.yml))
+Runs on an `ubuntu-latest` container:
+- **Code Quality**: Performs static linting checks (`npm run lint`).
+- **Type Checking**: Performs strict TypeScript compilation verification (`npx tsc --noEmit`).
+- **Vitest Unit Tests**: Executes backend API integration tests (`npm test`).
+- **Production Build Check**: Triggers a Next.js compilation build (`npm run build`) to guarantee that the single-function catch-all API bundle packages cleanly without warnings.
+
+### 2. Rust Contracts Verification ([contracts.yml](file:///d:/splitstellar/.github/workflows/contracts.yml) / [ci.yml](file:///d:/splitstellar/.github/workflows/ci.yml))
+- Installs the stable Rust toolchain with the `wasm32-unknown-unknown` compiler target.
+- Caches Cargo registries and target build dependencies to minimize compile times.
+- Performs formatting reviews (`cargo fmt --check`) and checks code for clippy warnings (`cargo clippy`).
+- Builds and compiles the smart contracts into optimized Soroban WASM binaries.
+
+### 3. Continuous Deployment ([deploy.yml](file:///d:/splitstellar/.github/workflows/deploy.yml))
+Pushes to the `main` branch trigger a deployment pipeline, verifying the Next.js static pages compile cleanly and confirming the output builds successfully before deployment to Vercel.
 
 ---
 
