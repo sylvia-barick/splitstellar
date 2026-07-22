@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { GET as statusGET } from "@/app/api/status/[[...slug]]/route";
+import { GET as apiRouterGET } from "@/app/api/[[...slug]]/route";
 import { NextRequest } from "next/server";
 
 describe("SplitStellar Backend API Verification Tests", () => {
   it("GET /api/health should return 200 OK with correct status and uptime", async () => {
-    const request = new NextRequest("http://localhost/api/status/health");
-    const response = await statusGET(request, { params: Promise.resolve({ slug: ["health"] }) });
+    const request = new NextRequest("http://localhost/api/health");
+    const response = await apiRouterGET(request, { params: Promise.resolve({ slug: ["health"] }) });
     expect(response.status).toBe(200);
 
     const body = await response.json() as {
@@ -23,7 +23,7 @@ describe("SplitStellar Backend API Verification Tests", () => {
 
   it("GET /api/status should return 200 OK with operational subsystems", async () => {
     const request = new NextRequest("http://localhost/api/status");
-    const response = await statusGET(request, { params: Promise.resolve({ slug: [] }) });
+    const response = await apiRouterGET(request, { params: Promise.resolve({ slug: ["status"] }) });
     expect(response.status).toBe(200);
 
     const body = await response.json() as {
