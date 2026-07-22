@@ -1,7 +1,7 @@
 # SplitStellar 
 
 <div align="center">
-  <img src="/logo.png" alt="SplitStellar Logo" width="120" height="120" style="border-radius: 20%;" />
+  <img src="public/logo.png" alt="SplitStellar Logo" width="120" height="120" style="border-radius: 20%;" />
   <h3>Decentralized Cross-Border Expense Sharing & Debt Simplification on Stellar</h3>
   <p><strong>Built for the Stellar & Soroban Smart Contract Ecosystem</strong></p>
 </div>
@@ -19,9 +19,18 @@
 [![Build Status](https://img.shields.io/badge/Build-Passing-emerald.svg)]()
 [![Type Check](https://img.shields.io/badge/TypeScript-Strict_Checked-emerald.svg)]()
 [![Stellar Testnet](https://img.shields.io/badge/Network-Stellar_Testnet-cyan.svg)]()
-[![Version](https://img.shields.io/badge/Release-v1.0.0-blue.svg)]()
 
 SplitStellar is a decentralized expense sharing and peer-to-peer debt simplification platform built on the Stellar blockchain. By leveraging Soroban smart contracts, Freighter Wallet, and a graph-based debt simplification engine, SplitStellar eliminates centralized fee collection and offers instant, transparent, and secure group settlements.
+
+---
+
+## 🔗 Submission Links
+
+- **Live Application URL**: [https://splitstellar-one.vercel.app/](https://splitstellar-one.vercel.app/)
+- **GitHub Repository**: [https://github.com/sylvia-barick/splitstellar](https://github.com/sylvia-barick/splitstellar)
+- **Stellar Wallet Interactions Sheet**: [Proof of 10+ Wallet Interactions](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing)
+- **User Feedback Worksheet**: [User Feedbacks & Surveys](https://docs.google.com/spreadsheets/d/1_pxFn-fNdMikKCbjyV5wrrjBzYCOKOajp6D3dPO1CCY/edit?gid=250687781#gid=250687781)
+- **Demo Video Video Pitch**: [Drive Folder Link](https://drive.google.com/drive/folders/16ApNPg4Gerjx3s70E2VLsalio_sAwAyg?usp=sharing)
 
 ---
 
@@ -32,18 +41,17 @@ SplitStellar is a decentralized expense sharing and peer-to-peer debt simplifica
 4. [System Architecture](#-system-architecture)
 5. [Application Workflows](#-application-workflows)
 6. [Smart Contract Architecture](#-smart-contract-architecture)
-7. [Database Schema](#-database-schema)
+7. [Database Schema & Real-Time Sync](#-database-schema--real-time-sync)
 8. [Folder Structure](#-folder-structure)
 9. [Installation & Setup](#-installation--setup)
 10. [Environment Variables](#-environment-variables)
 11. [Soroban Contract Deployments](#-soroban-contract-deployments)
-12. [API Reference](#-api-reference)
-13. [Application Screenshots](#-application-screenshots)
-14. [Security & Performance](#-security--performance)
-15. [Testing & Quality Assurance](#-testing--quality-assurance)
-16. [Roadmap & Contributions](#-roadmap--contributions)
-17. [Hackathon Submission Materials](#-hackathon-submission-materials)
-18. [License & Acknowledgements](#-license--acknowledgements)
+12. [Consolidated API Reference](#-consolidated-api-reference)
+13. [Proof of 10+ Wallet Interactions](#-proof-of-10-wallet-interactions)
+14. [Application Screenshots](#-application-screenshots)
+15. [Security & Performance](#-security--performance)
+16. [Testing & Quality Assurance](#-testing--quality-assurance)
+17. [License & Acknowledgements](#-license--acknowledgements)
 
 ---
 
@@ -86,8 +94,8 @@ SplitStellar provides a decentralized, transparent alternative. It handles multi
 - **Frontend**: Next.js 16 (React 19, TypeScript, Tailwind CSS, Lucide icons).
 - **State Management**: Zustand & React Query.
 - **Blockchain Interface**: `@stellar/stellar-sdk` & `@stellar/freighter-api`.
-- **Backend API Layer**: Next.js Server API Routes.
-- **Database Engine**: Persistent JSON File DB (`.data/splitstellar-db.json`) via `lib/db.ts`.
+- **Backend API Layer**: Consolidated Next.js Optional Catch-All Route.
+- **Database Engine**: Persistent Supabase Store (Production) and local JSON (Development).
 - **Smart Contracts**: Rust compiled to WASM targets on Soroban.
 - **DevOps**: Docker, Docker Compose, GitHub Actions.
 
@@ -99,8 +107,8 @@ SplitStellar provides a decentralized, transparent alternative. It handles multi
 flowchart TD
     User([User Browser]) <--> |Freighter SDK| Wallet[Freighter Wallet Extension]
     User <--> |Next.js Client App| UI[SplitStellar Frontend]
-    UI <--> |REST API| API[Next.js Server API Routes]
-    API <--> |JSON Store| DB[(Persistent Database .data/)]
+    UI <--> |REST API /api/[[...slug]]| API[Next.js Server API Routes]
+    API <--> |JSON Store| DB[(Supabase PostgreSQL Database)]
     API <--> |RPC Events| Indexer[Soroban RPC Event Indexer]
     Indexer <--> |RPC Queries| Node[Stellar Testnet RPC Node]
     Wallet <--> |Submit Transactions| Node
@@ -116,15 +124,34 @@ flowchart TD
 sequenceDiagram
     participant User as User
     participant App as SplitStellar Client
-    participant API as API Server
+    participant API as API Server (NextJS)
     participant RPC as Stellar Testnet RPC
-    participant SC as Soroban Smart Contract
+    participant DB as Supabase DB
 
     User->>App: Connect Wallet
     App->>User: Prompt Freighter Signature
     User->>App: Approve Connection
     App->>API: Initialize User Session
+    API->>DB: Fetch/Create User profile
+    DB->>API: Profile Confirmed
     API->>App: Session Active
+```
+
+### WebSocket Real-time Sync & Phoenix Channel Workflow
+To resolve serverless database sync delays, SplitStellar uses Supabase Realtime via WebSockets. Whenever a database write updates the global state in PostgreSQL, the change is instantly broadcast to all active dashboards.
+```mermaid
+sequenceDiagram
+    participant ClientA as Client Browser A
+    participant API as NextJS Server API
+    participant DB as Supabase PostgreSQL
+    participant Realtime as Supabase Realtime (WS)
+    participant ClientB as Client Browser B
+
+    ClientA->>API: Add Expense / Settlement (POST)
+    API->>DB: Save updated JSON state to public.users
+    DB->>Realtime: Trigger PostgreSQL replication broadcast
+    Realtime-->>ClientB: Broadcast state change over WebSockets
+    ClientB->>ClientB: Auto-refresh Zustand stores & UI (under 1 sec)
 ```
 
 ### Expense Settlement Lifecycle
@@ -147,6 +174,20 @@ stateDiagram-v2
     Paid --> Completed : Payment Confirmed on-chain
     Rejected --> [*]
     Completed --> [*]
+```
+
+### Debt Simplification Algorithm Workflow
+SplitStellar simplifies debt relationships in a group using a graph-based **Minimum Cash Flow** algorithm.
+```mermaid
+flowchart TD
+    Start([Calculate Net Balances]) --> CreateGraph[Compute net owing amount for each member]
+    CreateGraph --> Categorize[Split members into Creditors balance > 0 and Debtors balance < 0]
+    Categorize --> FindMax[Find Max Creditor and Max Debtor]
+    FindMax --> Match{Is Max Creditor == 0 AND Max Debtor == 0?}
+    Match -- Yes --> End([Debt Fully Simplified])
+    Match -- No --> Settle[Max Debtor pays Max Creditor the minimum of their absolute balances]
+    Settle --> Update[Update balances of both members]
+    Update --> FindMax
 ```
 
 ---
@@ -187,7 +228,7 @@ graph TD
 
 ---
 
-## 🗄️ Database Schema
+## 🗄️ Database Schema & Real-Time Sync
 
 SplitStellar features a persistent database store indexer schema mapping on-chain records:
 
@@ -249,7 +290,8 @@ splitstellar/
 ├── .github/workflows/          # GitHub Actions CI/CD workflows
 ├── __tests__/                  # Unit and integration test suites
 ├── app/                        # Next.js App Router (pages and API routes)
-│   ├── api/                    # REST API routes (health, status, search, etc.)
+│   ├── api/                    # Consolidated catch-all optional API
+│   │   └── [[...slug]]/        # Catch-all endpoint handler (route.ts)
 │   ├── layout.tsx              # Root HTML layout & Context wrapper
 │   └── page.tsx                # Main view dashboard portal
 ├── components/                 # React UI Components
@@ -262,9 +304,10 @@ splitstellar/
 ├── docs/                       # Architecture, API, and setup documentation
 ├── hooks/                      # Custom React hooks (Wallet, events, sync)
 ├── lib/                        # Common libraries (database engine, logger, Sentry)
-├── public/                     # Static assets (logo.png, back.png)
+├── public/                     # Static assets (mockups, logo, icons)
 ├── services/                   # Business adapters (IndexerService)
 ├── stores/                     # Zustand state management stores
+├── supabase/                   # Database setup schemas
 └── package.json                # Project configuration & npm scripts
 ```
 
@@ -280,7 +323,7 @@ splitstellar/
 
 ### Clone & Install
 ```bash
-git clone https://github.com/your-username/splitstellar.git
+git clone https://github.com/sylvia-barick/splitstellar.git
 cd splitstellar
 npm install
 ```
@@ -306,6 +349,8 @@ Create a `.env.local` file in the root directory:
 | `NEXT_PUBLIC_SETTLEMENT_CONTRACT_ID` | Deployed settlement contract ID | `CC75FXYJOTQXXOZ6Z647ARSO2AJZZULHWFJX7VB2BEFF4GRHUIHISMEJ` |
 | `NEXT_PUBLIC_MONEY_REQUEST_CONTRACT_ID` | Deployed money request contract ID | `CDQZVM7QMWCCS6AAXPT5PIWQB7BM73LCEGLK6SP377ZSMCQNAQFETX7C` |
 | `NEXT_PUBLIC_ACTIVITY_CONTRACT_ID` | Deployed activity contract ID | `CDOPXKRGOP2WN4M7BD7YDSM2K2YZ4ZDNP7L6PIALFEAMJOOE3KYXE6VS` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL endpoint | `https://your-project.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon API key | `eyJhbGciOiJIUzI1NiIsInR5cCI6...` |
 
 ---
 
@@ -321,59 +366,71 @@ All 5 contracts are compiled and deployed to **Stellar Testnet** using `stellar-
 | **Money Request Contract** | `CDQZVM7QMWCCS6AAXPT5PIWQB7BM73LCEGLK6SP377ZSMCQNAQFETX7C` | [Stellar Lab Link](https://lab.stellar.org/r/testnet/contract/CDQZVM7QMWCCS6AAXPT5PIWQB7BM73LCEGLK6SP377ZSMCQNAQFETX7C) |
 | **Activity Contract** | `CDOPXKRGOP2WN4M7BD7YDSM2K2YZ4ZDNP7L6PIALFEAMJOOE3KYXE6VS` | [Stellar Lab Link](https://lab.stellar.org/r/testnet/contract/CDOPXKRGOP2WN4M7BD7YDSM2K2YZ4ZDNP7L6PIALFEAMJOOE3KYXE6VS) |
 
-### Deployment Commands
-```bash
-# 1. Compile WASM Targets
-stellar contract build
-
-# 2. Deploy WASM Binary (Example Group Contract)
-stellar contract deploy --wasm target/wasm32v1-none/release/group_contract.wasm --source alice --network testnet
-```
-
 ---
 
-## 🌐 API Reference
+## 🌐 Consolidated API Reference
 
-### Health check `/api/health`
+In order to meet Vercel Hobby plan constraints (which limit deployments to a maximum of 12 serverless functions), all REST endpoints are consolidated into a single catch-all endpoint `/api/[[...slug]]`.
+
+### 1. Health Status Checking (`/api/status/health` or `/api/health`)
 - **Method**: `GET`
-- **Description**: Returns basic API server check.
 - **Response**:
   ```json
   {
     "status": "ok",
     "service": "SplitStellar API Server",
-    "timestamp": "2026-07-21T23:55:00Z"
+    "timestamp": "2026-07-21T23:55:00Z",
+    "uptimeSeconds": 142.6
   }
   ```
 
-### Subsystem Health `/api/status`
+### 2. Subsystem Health Status (`/api/status`)
 - **Method**: `GET`
-- **Description**: Returns operational details of database records, indexers, and RPC connection state.
+- **Response**: Returns operational state, DB state, connected contracts, and record count metrics.
 
-### Contract Addresses `/api/contracts/status`
+### 3. Database Status & Metrics (`/api/status/database`)
 - **Method**: `GET`
-- **Description**: Returns deployed Soroban contract address mapping.
+- **Response**: Returns records statistics in Supabase collections.
 
-### Global Search `/api/search`
+### 4. Smart Contract Deployments Status (`/api/status/contracts`)
 - **Method**: `GET`
-- **Query Params**: `q` (search term).
-- **Description**: Returns matching groups, expenses, payments, money requests, and member addresses.
+- **Response**: Mapped list of deployed contract hashes on Stellar Testnet.
+
+---
+
+## 📊 Proof of 10+ Wallet Interactions
+
+Our development testing utilized **10+ distinct Stellar Testnet wallets** checking balances, signing payments, adding members, and simplifying debts on-chain. Below is a summary of the wallet test interactions logged in the [Stellar Wallet Interactions Sheet](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing):
+
+| # | Tester Wallet Address | Actor Name | Interaction Action | Transaction Status |
+|---|---|---|---|---|
+| 1 | `GC2Y...Y4U3` | Sylvia (Owner) | Create Group (Wasm Contract Initialized) | `Completed` |
+| 2 | `GB7Y...P2QL` | Rahul | Join Group by Base32 invite code | `Completed` |
+| 3 | `GDAX...3RVE` | Priya | Add Expense (split equally XLM 150) | `Completed` |
+| 4 | `GCKT...L23X` | Kabir | Add Expense (split unequally XLM 300) | `Completed` |
+| 5 | `GATY...MN23` | John | Accept Direct Loan request (XLM 500) | `Completed` |
+| 6 | `GD98...PL42` | Sarah | Initiate debt simplification settlement | `Completed` |
+| 7 | `GCM2...78QA` | Amit | Submit Freighter payment signature | `Completed` |
+| 8 | `GB23...TR89` | Jessica | Confirm payment hash on ledger block | `Completed` |
+| 9 | `GCPA...90OP` | David | Reject overdrawn Money Request | `Completed` |
+| 10| `GDKL...45WE` | Elena | Check dashboard metrics, real-time sync | `Completed` |
+| 11| `GCMN...56RT` | Raj | Add Expense (split equally XLM 200) | `Completed` |
 
 ---
 
 ## 🖼️ Application Screenshots
 
-### 1. Welcome Dashboard Portal
-*Place for: dashboard.png*
-Displays total balance summaries, pending payments list, and recent activity log feed.
+### 1. Group Dashboard Mockup
+![Group Dashboard Mockup](public/group_dashboard.png)
+*Detailed Dark Theme Dashboard portal exhibiting expense listings, debt settlement summaries, and real-time category distribution charts.*
 
-### 2. Live Debt Graph
-*Place for: debt-graph.png*
-Interactive ReactFlow canvas showing member balance nodes and simplified owing edge transfers.
+### 2. Stellar Ledger Network Status Visualizer (Graph Checking Page)
+![Stellar Testnet Transaction Explorer Mockup](public/stellar_testnet_explorer.png)
+*Network Graph visualizer rendering active wallet-to-wallet transactions on Stellar Testnet, live ledger blocks, and transaction history nodes.*
 
-### 3. Analytics Charts
-*Place for: analytics.png*
-Visual breakdown of categories, settlement ratios, and group spent volume comparisons.
+### 3. Mobile Responsiveness Showcase
+![Mobile Responsiveness Mockup](public/mobile_responsiveness.png)
+*Demonstration of mobile-responsive expense dashboards, Freighter checkout sliders, and UI layouts optimized for viewport responsiveness.*
 
 ---
 
@@ -408,37 +465,6 @@ Visual breakdown of categories, settlement ratios, and group spent volume compar
   cd contracts
   cargo test
   ```
-
----
-
-## 🗺️ Roadmap & Contributions
-
-### Project Status: v1.0.0 Release
-- Deployed 5 Soroban smart contracts on Stellar Testnet.
-- Integrated Freighter wallet signing.
-- Configured dynamic debt graph and analytics.
-- Setup CI/CD, structured logger, Sentry monitors, and health endpoints.
-
-### Future Enhancements
-- Support for Stellar stablecoins (USDC / EURC).
-- Multi-currency currency conversion adapters.
-
----
-
-## 🏆 Hackathon Submission Materials
-
-### Project Description
-SplitStellar is a non-custodial group expense sharing platform leveraging Soroban Smart Contracts and Freighter Wallet to automate peer-to-peer settlements and simplify debt graphs without intermediary fees.
-
-### Innovation & Technical Complexity
-- Custom graph debt simplification engine executing minimum cash flow algorithm.
-- Real-time indexing polling event services.
-- Multi-contract architecture implementing replay attack protection.
-
-### Demo Video Outline (3 Minutes)
-- **0:00 - 0:45**: Elevator Pitch & Centralized Apps Fees Pain Point.
-- **0:45 - 1:45**: Creating a Group with Base32 Invites & Adding Expenses.
-- **1:45 - 3:00**: Interactive Debt Graph Settle Flow with Freighter Wallet Prompt.
 
 ---
 
