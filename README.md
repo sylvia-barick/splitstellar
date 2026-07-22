@@ -4,6 +4,7 @@
   <img src="public/logo.png" alt="SplitStellar Logo" width="120" height="120" style="border-radius: 20%;" />
   <h3>Decentralized Cross-Border Expense Sharing & Debt Simplification on Stellar</h3>
   <p><strong>Built for the Stellar & Soroban Smart Contract Ecosystem</strong></p>
+  <img src="dashboard.png" alt="SplitStellar dashboard" width="120" height="120" style="border-radius: 20%;" />
 </div>
 
 ---
@@ -29,7 +30,7 @@ SplitStellar is a decentralized expense sharing and peer-to-peer debt simplifica
 - **Live Application URL**: [https://splitstellar-one.vercel.app/](https://splitstellar-one.vercel.app/)
 - **GitHub Repository**: [https://github.com/sylvia-barick/splitstellar](https://github.com/sylvia-barick/splitstellar)
 - **Stellar Wallet Interactions Sheet**: [Proof of 10+ Wallet Interactions](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing)
-- **User Feedback Worksheet**: [User Feedbacks & Surveys](https://docs.google.com/spreadsheets/d/1_pxFn-fNdMikKCbjyV5wrrjBzYCOKOajp6D3dPO1CCY/edit?gid=250687781#gid=250687781)
+- **User Feedback Worksheet**: [User Feedbacks & Surveys](https://docs.google.com/spreadsheets/d/1BsMR8rPdG5nlihHdYONUzQYbPFtwB9ut0EiPQGeSeeQ/edit?usp=sharing)
 - **Demo Video Video Pitch**: [Drive Folder Link](https://drive.google.com/drive/folders/16ApNPg4Gerjx3s70E2VLsalio_sAwAyg?usp=sharing)
 
 ---
@@ -398,7 +399,10 @@ In order to meet Vercel Hobby plan constraints (which limit deployments to a max
 
 ---
 
-Our development testing utilized **10+ distinct Stellar Testnet wallets** executing contract calls, signing payments, and deploying WASM bytecode on-chain. Below is a detailed audit of the verified testnet ledger transactions (also logged in the [Stellar Wallet Interactions Sheet](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing)):
+## 📊 Proof of 10+ Wallet Interactions
+
+Our development testing utilized **10+ distinct Stellar Testnet wallets** checking balances, signing payments, adding members, and simplifying debts on-chain. Below is a summary of the wallet test interactions logged in the [Stellar Wallet Interactions Sheet](https://docs.google.com/spreadsheets/d/13xVnxmEnzW19qRu27-Lr41lvexip8BOPcrsIRlEHR_A/edit?usp=sharing):
+
 
 | Date / Time (UTC) | Tx Hash (Short) | Calling Wallet Address | Invoked Function | Amount (Raw i128) | Destination Wallet | Ledger | Status |
 |---|---|---|---|---|---|---|---|
@@ -415,22 +419,21 @@ Our development testing utilized **10+ distinct Stellar Testnet wallets** execut
 | `2026-07-21 21:18:20` | `72bd6a76...c90f` | `GD55RL...UOT7` | `record_payment` | `1,000` | `GBYOEY...EIQ` | `3730205` | `Completed` |
 | `2026-07-21 17:23:01` | `WASM Upload` | `GBXFW3...XRGC` | `create contract` | *N/A* | `Settlement Deployed`| *N/A* | `Completed` |
 
-> **Note on scaling**: Amounts are represented in scaled integer raw format as defined on the Soroban smart contracts ledger (e.g., 20,000 raw units = 0.002 XLM based on 7 decimal places scaling).
-
 ---
 
 ## 🖼️ Application Screenshots
 
-### 1. Group Dashboard Mockup
-![Group Dashboard Mockup](public/group_dashboard.png)
+### 1. Group Groups 
+![Group Dashboard Mockup](groups.png)
 *Detailed Dark Theme Dashboard portal exhibiting expense listings, debt settlement summaries, and real-time category distribution charts.*
 
 ### 2. Stellar Ledger Network Status Visualizer (Graph Checking Page)
-![Stellar Testnet Transaction Explorer Mockup](public/stellar_testnet_explorer.png)
+![Stellar Testnet Transaction Explorer ](graph.png)
+![Stellar Testnet Transaction Explorer](graph2.png)
 *Network Graph visualizer rendering active wallet-to-wallet transactions on Stellar Testnet, live ledger blocks, and transaction history nodes.*
 
 ### 3. Mobile Responsiveness Showcase
-![Mobile Responsiveness Mockup](public/mobile_responsiveness.png)
+![Mobile Responsiveness Mockup](mobile.png)
 *Demonstration of mobile-responsive expense dashboards, Freighter checkout sliders, and UI layouts optimized for viewport responsiveness.*
 
 ---
