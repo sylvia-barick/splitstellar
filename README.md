@@ -3,7 +3,7 @@
 <div align="center">
   <img src="public/logo.png" alt="SplitStellar Logo" width="120" height="120" style="border-radius: 20%;" />
   <h3>Decentralized Cross-Border Expense Sharing & Debt Simplification on Stellar</h3>
-  <p><strong>Built for the Stellar & Soroban Smart Contract Ecosystem</strong></p>
+  <p><strong>Built for the Stellar</strong></p>
   <img src="dashboard.png" alt="SplitStellar dashboard" width="100%" height="500" style="border-radius: 20%;" />
 </div>
 
