@@ -475,4 +475,4 @@ Our development testing utilized **10+ distinct Stellar Testnet wallets** checki
 ## 📄 License & Acknowledgements
 
 - Distributed under the **MIT License**.
-- Special thanks to the **Stellar Development Foundation** (SDF) and the **Soroban Smart Contract Ecosystem** for developer documentation and tooling support.
+- Built by Sylvia
