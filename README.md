@@ -107,7 +107,7 @@ SplitStellar provides a decentralized, transparent alternative. It handles multi
 flowchart TD
     User([User Browser]) <--> |Freighter SDK| Wallet[Freighter Wallet Extension]
     User <--> |Next.js Client App| UI[SplitStellar Frontend]
-    UI <--> |REST API /api/[[...slug]]| API[Next.js Server API Routes]
+    UI <--> |"REST API /api/[[...slug]]"| API[Next.js Server API Routes]
     API <--> |JSON Store| DB[(Supabase PostgreSQL Database)]
     API <--> |RPC Events| Indexer[Soroban RPC Event Indexer]
     Indexer <--> |RPC Queries| Node[Stellar Testnet RPC Node]
