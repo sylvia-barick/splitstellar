@@ -4,7 +4,7 @@
   <img src="public/logo.png" alt="SplitStellar Logo" width="120" height="120" style="border-radius: 20%;" />
   <h3>Decentralized Cross-Border Expense Sharing & Debt Simplification on Stellar</h3>
   <p><strong>Built for the Stellar & Soroban Smart Contract Ecosystem</strong></p>
-  <img src="dashboard.png" alt="SplitStellar dashboard" width="120" height="120" style="border-radius: 20%;" />
+  <img src="dashboard.png" alt="SplitStellar dashboard" width="100%" height="500" style="border-radius: 20%;" />
 </div>
 
 ---
@@ -433,7 +433,7 @@ Our development testing utilized **10+ distinct Stellar Testnet wallets** checki
 *Network Graph visualizer rendering active wallet-to-wallet transactions on Stellar Testnet, live ledger blocks, and transaction history nodes.*
 
 ### 3. Mobile Responsiveness Showcase
-![Mobile Responsiveness Mockup](mobile.png)
+<img src="mobile.jpeg" alt="SplitStellar mobile" width="250" height="600" style="border-radius: 20%;" />
 *Demonstration of mobile-responsive expense dashboards, Freighter checkout sliders, and UI layouts optimized for viewport responsiveness.*
 
 ---
