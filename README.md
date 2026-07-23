@@ -480,6 +480,7 @@ Our development testing utilized **10+ distinct Stellar Testnet wallets** checki
 SplitStellar utilizes GitHub Actions to automate code quality verification, unit testing, compiling of smart contracts, and production build checks on every push to main branches.
 
  <img src="cicd pipeline.png" alt="SplitStellar cicd" width="100%" height="500" style="border-radius: 20%;" />
+ <img src="cicd2" alt="SplitStellar cicd" width="100%" height="500" style="border-radius: 20%;" />
 
 ### 1. Next.js Continuous Integration ([ci.yml](file:///d:/splitstellar/.github/workflows/ci.yml))
 Runs on an `ubuntu-latest` container:
